@@ -1,0 +1,51 @@
+# Dependencies
+node_modules/
+frontend/node_modules/
+
+# Build outputs
+frontend/dist/
+backend/__pycache__/
+backend/app/__pycache__/
+backend/app/**/__pycache__/
+**/__pycache__/
+*.pyc
+*.pyo
+
+# Environment variables (contain secrets)
+.env
+backend/.env
+frontend/.env
+
+# Database (SQLite)
+backend/data/
+*.db
+
+# Generated images
+data/
+backend/data/images/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Python virtual env
+venv/
+.venv/
+env/
+
+# Logs
+*.log
+
+# Test coverage
+coverage/
+htmlcov/
+.coverage
+
+# Kiro specs (optional - remove if you want to track specs)
+# .kiro/

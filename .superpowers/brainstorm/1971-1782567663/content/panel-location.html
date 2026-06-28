@@ -1,0 +1,121 @@
+<h2>Where should the Brand Overlay panel live?</h2>
+<p class="subtitle">This panel lets users upload a logo, set badge text, and set CTA text before generating. Pick the layout that feels most natural.</p>
+
+<div class="cards">
+
+  <!-- Option A -->
+  <div class="card" data-choice="a" onclick="toggleSelect(this)">
+    <div class="card-image" style="background:#0d0d14;border-radius:8px;padding:16px;font-family:Inter,sans-serif;font-size:11px;color:#94a3b8;">
+      <div style="background:#111118;border:1px solid rgba(124,58,237,0.2);border-radius:8px;padding:10px;margin-bottom:6px;">
+        <div style="color:#7c3aed;font-size:9px;font-weight:700;letter-spacing:1px;margin-bottom:6px;">✦ PROMPT LIBRARY  <span style="background:#7c3aed;color:#fff;border-radius:99px;padding:1px 5px;font-size:8px;">60+</span></div>
+        <div style="background:#18181f;border-radius:6px;padding:8px;color:#64748b;font-size:9px;">Describe your image…</div>
+        <div style="display:flex;gap:6px;margin-top:6px;align-items:center;">
+          <div style="background:#7c3aed;color:#fff;border-radius:6px;padding:4px 10px;font-size:9px;font-weight:600;">✦ Generate</div>
+          <span style="font-size:9px;color:#475569;">1  2  3  4 images</span>
+        </div>
+      </div>
+      <!-- Brand overlay panel BELOW prompt -->
+      <div style="background:#111118;border:1px solid rgba(236,72,153,0.25);border-radius:8px;padding:10px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+          <span style="color:#ec4899;font-size:9px;font-weight:700;letter-spacing:1px;">🎨 BRAND OVERLAY</span>
+          <span style="background:#ec4899;color:#fff;border-radius:99px;padding:1px 6px;font-size:8px;">Optional</span>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;">
+          <div style="background:#18181f;border-radius:5px;padding:6px;border:1px dashed #334155;">
+            <div style="font-size:8px;color:#64748b;margin-bottom:3px;">LOGO UPLOAD</div>
+            <div style="color:#7c3aed;font-size:8px;">📎 Upload PNG / SVG</div>
+          </div>
+          <div style="background:#18181f;border-radius:5px;padding:6px;">
+            <div style="font-size:8px;color:#64748b;margin-bottom:3px;">BADGE TEXT</div>
+            <div style="color:#94a3b8;font-size:8px;">24/7 Emergency… ✨</div>
+          </div>
+          <div style="background:#18181f;border-radius:5px;padding:6px;grid-column:1/-1;">
+            <div style="font-size:8px;color:#64748b;margin-bottom:3px;">CALL-TO-ACTION TEXT</div>
+            <div style="color:#94a3b8;font-size:8px;">Contact Your MRC Branch ✨</div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>A — Below Prompt (always visible)</h3>
+      <p>Brand overlay panel sits directly below the prompt box, always expanded and accessible. Natural top-to-bottom flow: write prompt → configure brand → generate.</p>
+    </div>
+  </div>
+
+  <!-- Option B -->
+  <div class="card" data-choice="b" onclick="toggleSelect(this)">
+    <div class="card-image" style="background:#0d0d14;border-radius:8px;padding:16px;font-family:Inter,sans-serif;font-size:11px;color:#94a3b8;">
+      <div style="background:#111118;border:1px solid rgba(124,58,237,0.2);border-radius:8px;padding:10px;margin-bottom:6px;">
+        <div style="color:#7c3aed;font-size:9px;font-weight:700;letter-spacing:1px;margin-bottom:6px;">✦ PROMPT LIBRARY  <span style="background:#7c3aed;color:#fff;border-radius:99px;padding:1px 5px;font-size:8px;">60+</span></div>
+        <div style="background:#18181f;border-radius:6px;padding:8px;color:#64748b;font-size:9px;">Describe your image…</div>
+        <div style="display:flex;gap:6px;margin-top:6px;align-items:center;justify-content:space-between;">
+          <div style="display:flex;gap:6px;align-items:center;">
+            <div style="background:#18181f;border:1px solid rgba(236,72,153,0.3);color:#ec4899;border-radius:6px;padding:4px 8px;font-size:9px;font-weight:600;">🎨 Brand Overlay</div>
+            <span style="font-size:9px;color:#475569;">1  2  3  4</span>
+          </div>
+          <div style="background:#7c3aed;color:#fff;border-radius:6px;padding:4px 10px;font-size:9px;font-weight:600;">✦ Generate</div>
+        </div>
+      </div>
+      <!-- Collapsed state hint -->
+      <div style="background:#111118;border:1px solid rgba(236,72,153,0.25);border-radius:8px;padding:10px;border-style:dashed;">
+        <div style="color:#ec4899;font-size:9px;font-weight:600;margin-bottom:6px;">🎨 Brand Overlay — expanded on click</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;">
+          <div style="background:#18181f;border-radius:5px;padding:6px;border:1px dashed #334155;">
+            <div style="font-size:8px;color:#64748b;margin-bottom:3px;">LOGO UPLOAD</div>
+            <div style="color:#7c3aed;font-size:8px;">📎 Upload PNG / SVG</div>
+          </div>
+          <div style="background:#18181f;border-radius:5px;padding:6px;">
+            <div style="font-size:8px;color:#64748b;margin-bottom:3px;">BADGE TEXT</div>
+            <div style="color:#94a3b8;font-size:8px;">24/7 Emergency… ✨</div>
+          </div>
+          <div style="background:#18181f;border-radius:5px;padding:6px;grid-column:1/-1;">
+            <div style="font-size:8px;color:#64748b;margin-bottom:3px;">CALL-TO-ACTION</div>
+            <div style="color:#94a3b8;font-size:8px;">Contact Your MRC Branch ✨</div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>B — Collapsible panel (toggle button in prompt bar)</h3>
+      <p>A "Brand Overlay" button sits alongside Generate. Clicking expands the panel. Keeps the page clean for users who don't need it — power feature for brand campaigns.</p>
+    </div>
+  </div>
+
+  <!-- Option C -->
+  <div class="card" data-choice="c" onclick="toggleSelect(this)">
+    <div class="card-image" style="background:#0d0d14;border-radius:8px;padding:16px;font-family:Inter,sans-serif;font-size:11px;color:#94a3b8;">
+      <div style="display:grid;grid-template-columns:1fr 220px;gap:8px;">
+        <div>
+          <div style="background:#111118;border:1px solid rgba(124,58,237,0.2);border-radius:8px;padding:10px;margin-bottom:6px;">
+            <div style="background:#18181f;border-radius:6px;padding:8px;color:#64748b;font-size:9px;margin-bottom:6px;">Describe your image…</div>
+            <div style="background:#7c3aed;color:#fff;border-radius:6px;padding:4px 10px;font-size:9px;font-weight:600;display:inline-block;">✦ Generate</div>
+          </div>
+          <div style="background:#111118;border:1px solid rgba(255,255,255,0.05);border-radius:8px;padding:10px;">
+            <div style="color:#64748b;font-size:8px;">Generated image appears here…</div>
+          </div>
+        </div>
+        <!-- Right sidebar panel -->
+        <div style="background:#111118;border:1px solid rgba(236,72,153,0.25);border-radius:8px;padding:10px;">
+          <div style="color:#ec4899;font-size:9px;font-weight:700;letter-spacing:1px;margin-bottom:8px;">🎨 BRAND</div>
+          <div style="background:#18181f;border-radius:5px;padding:6px;border:1px dashed #334155;margin-bottom:5px;">
+            <div style="font-size:8px;color:#64748b;margin-bottom:3px;">LOGO</div>
+            <div style="color:#7c3aed;font-size:8px;">📎 Upload</div>
+          </div>
+          <div style="background:#18181f;border-radius:5px;padding:6px;margin-bottom:5px;">
+            <div style="font-size:8px;color:#64748b;margin-bottom:3px;">BADGE TEXT</div>
+            <div style="color:#94a3b8;font-size:8px;line-height:1.4;">24/7 Emergency<br>Supply Cap… ✨</div>
+          </div>
+          <div style="background:#18181f;border-radius:5px;padding:6px;">
+            <div style="font-size:8px;color:#64748b;margin-bottom:3px;">CTA TEXT</div>
+            <div style="color:#94a3b8;font-size:8px;">Contact Branch ✨</div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>C — Persistent right sidebar</h3>
+      <p>Brand settings live in a fixed right-side panel beside the main content. Always visible, always editable. Best for power users who iterate on brand settings often.</p>
+    </div>
+  </div>
+
+</div>
