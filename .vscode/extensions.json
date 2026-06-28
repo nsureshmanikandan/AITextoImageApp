@@ -1,0 +1,26 @@
+{
+  "recommendations": [
+    // JavaScript / TypeScript
+    "dbaeumer.vscode-eslint",
+    "esbenp.prettier-vscode",
+
+    // Python
+    "ms-python.python",
+    "ms-python.pylance",
+
+    // Tailwind CSS
+    "bradlc.vscode-tailwindcss",
+
+    // REST / API testing
+    "humao.rest-client",
+
+    // Docker
+    "ms-azuretools.vscode-docker",
+
+    // Git
+    "eamodio.gitlens",
+
+    // YAML (docker-compose, GitHub Actions)
+    "redhat.vscode-yaml"
+  ]
+}

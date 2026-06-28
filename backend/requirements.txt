@@ -1,0 +1,15 @@
+fastapi
+uvicorn[standard]
+sqlmodel
+httpx
+beautifulsoup4
+lxml
+openai>=1.0
+azure-cognitiveservices-speech
+ffmpeg-python
+Pillow
+python-dotenv
+pydantic-settings
+websockets
+aiofiles
+python-multipart

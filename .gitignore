@@ -1,0 +1,143 @@
+# =============================================================================
+# VernacularCast — .gitignore
+# =============================================================================
+
+# ---- Python ----------------------------------------------------------------
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# Virtual environments
+.venv/
+venv/
+ENV/
+env/
+env.bak/
+venv.bak/
+.python-version
+
+# Testing
+.pytest_cache/
+.coverage
+.coverage.*
+htmlcov/
+.tox/
+.nox/
+coverage.xml
+*.cover
+.hypothesis/
+
+# Type checkers
+.mypy_cache/
+.dmypy.json
+dmypy.json
+.pyright/
+
+# ---- Node / Frontend -------------------------------------------------------
+node_modules/
+frontend/node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+.pnpm-store/
+
+# Build output
+frontend/dist/
+frontend/build/
+frontend/.vite/
+dist/
+build/
+
+# ---- Media & Generated Files -----------------------------------------------
+*.mp4
+*.mp3
+*.wav
+*.ogg
+*.webm
+*.avi
+*.mkv
+*.flac
+*.aac
+backend/media/
+media/
+uploads/
+generated/
+
+# ---- Database Files --------------------------------------------------------
+*.db
+*.sqlite
+*.sqlite3
+backend/vernacularcast.db
+
+# ---- Environment / Secrets -------------------------------------------------
+# NEVER commit real credentials — keep the placeholder .env for demo purposes
+# Uncomment the line below to ignore ALL .env variants if you go production:
+# .env
+.env
+.env.local
+.env.production
+.env.staging
+.env.*.local
+*.secret
+secrets/
+
+# ---- Docker ----------------------------------------------------------------
+.docker/
+docker-compose.override.yml
+
+# ---- OS Files --------------------------------------------------------------
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V7
+.Trashes
+ehthumbs.db
+Thumbs.db
+desktop.ini
+$RECYCLE.BIN/
+
+# ---- IDE / Editor ----------------------------------------------------------
+# VS Code — keep extensions.json, ignore personal settings
+.vscode/settings.json
+.vscode/*.log
+
+# JetBrains
+.idea/
+*.iml
+*.iws
+
+# Vim / Neovim
+*.swp
+*.swo
+*~
+.netrwhist
+
+# ---- Logs ------------------------------------------------------------------
+logs/
+*.log
+*.log.*
+
+# ---- Misc ------------------------------------------------------------------
+.cache/
+.temp/
+tmp/
