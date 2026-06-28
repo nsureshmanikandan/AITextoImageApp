@@ -38,9 +38,22 @@ def dashboard_stats(session: Session = Depends(get_session)):
 
 @router.get("/scrape-preview")
 async def scrape_preview(url: str = Query(..., description="Article URL to preview")):
-    result = await scrape_article(url)
-    return {
-        "title": result.get("title", ""),
-        "body_preview": result.get("body", "")[:300] + "..." if len(result.get("body", "")) > 300 else result.get("body", ""),
-        "source_url": result.get("source_url", url),
-    }
+    try:
+        result = await scrape_article(url)
+        body = result.get("body", "")
+        return {
+            "title": result.get("title", ""),
+            "body_preview": (body[:300] + "…") if len(body) > 300 else body,
+            "source_url": result.get("source_url", url),
+            "ok": True,
+        }
+    except Exception as e:
+        # Never crash the preview — return partial info so the UI can still proceed
+        from urllib.parse import urlparse
+        domain = urlparse(url).netloc or url
+        return {
+            "title": domain,
+            "body_preview": f"Could not preview this URL ({e}). You can still submit it — the pipeline will attempt extraction.",
+            "source_url": url,
+            "ok": False,
+        }

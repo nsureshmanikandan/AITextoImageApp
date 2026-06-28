@@ -5,7 +5,7 @@ httpx
 beautifulsoup4
 lxml
 openai>=1.0
-azure-cognitiveservices-speech
+edge-tts
 ffmpeg-python
 Pillow
 python-dotenv

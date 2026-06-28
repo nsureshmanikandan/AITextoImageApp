@@ -6,9 +6,11 @@ import { formatDuration } from '../lib/utils'
 interface VideoPlayerProps {
   src: string
   className?: string
+  format?: string  // 'vertical_9_16' | 'landscape_16_9'
 }
 
-export default function VideoPlayer({ src, className }: VideoPlayerProps) {
+export default function VideoPlayer({ src, className, format }: VideoPlayerProps) {
+  const isPortrait = format === 'vertical_9_16'
   const videoRef = useRef<HTMLVideoElement>(null)
   const containerRef = useRef<HTMLDivElement>(null)
   const progressRef = useRef<HTMLDivElement>(null)
@@ -89,14 +91,19 @@ export default function VideoPlayer({ src, className }: VideoPlayerProps) {
   return (
     <div
       ref={containerRef}
-      className={cn('relative bg-black rounded-2xl overflow-hidden group', className)}
+      className={cn(
+        'relative bg-black rounded-2xl overflow-hidden group',
+        isPortrait ? 'mx-auto w-full max-w-sm' : '',
+        className
+      )}
+      style={isPortrait ? { aspectRatio: '9/16' } : undefined}
       onMouseMove={resetHideTimer}
       onMouseLeave={() => playing && setShowControls(false)}
     >
       <video
         ref={videoRef}
         src={src}
-        className="w-full h-full object-contain"
+        className="w-full h-full object-cover"
         onTimeUpdate={handleTimeUpdate}
         onLoadedMetadata={handleLoadedMetadata}
         onEnded={() => setPlaying(false)}

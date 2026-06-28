@@ -19,7 +19,7 @@ export default function Review() {
   const navigate = useNavigate()
   const { updateJob, removeJob } = useJobStore()
 
-  const job = useJobStore((s) => s.jobs.find((j) => j.id === id))
+  const job = useJobStore((s) => s.jobs.find((j) => String(j.id) === id))
   const [loading, setLoading] = useState(!job)
   const [error, setError] = useState('')
   const [approving, setApproving] = useState(false)
@@ -111,7 +111,11 @@ export default function Review() {
         <div className="lg:col-span-3">
           <div className="glass-card overflow-hidden">
             {videoSrc ? (
-              <VideoPlayer src={videoSrc} className="w-full aspect-video" />
+              <VideoPlayer
+                src={videoSrc}
+                format={job.format}
+                className={job.format === 'vertical_9_16' ? '' : 'w-full aspect-video'}
+              />
             ) : (
               <div className="w-full aspect-video bg-navy-900/60 flex items-center justify-center">
                 {job.status === 'awaiting_review' ? (
