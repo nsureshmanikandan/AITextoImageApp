@@ -24,7 +24,8 @@ from app.services.scraper import scrape_article
 from app.services.script_generator import generate_script, generate_dub_script
 from app.services.tts_service import synthesize_speech
 from app.services.video_renderer import render_video
-from app.services.youtube_dubber import download_youtube_video, get_youtube_metadata, dub_video
+from app.services.youtube_dubber import download_youtube_video, extract_subtitles, get_youtube_metadata, dub_video
+from app.services.quality_scorer import score_translation, compute_timing_score, get_audio_duration, LANGUAGE_NAMES as SCORE_LANG_NAMES
 from app.ws_manager import ws_manager
 from app.config import settings
 
@@ -108,7 +109,7 @@ async def _run_youtube_pipeline(session: Session, job: Job) -> None:
     output_mp4 = str(out_dir / f"job_{job.id}.mp4")
 
     with tempfile.TemporaryDirectory() as tmpdir:
-        # Step 1: Download YouTube video
+        # Step 1: Download YouTube video + subtitles in parallel
         await _update_job(session, job, "scraping", "scraping", "started",
                           "Downloading YouTube video…")
         meta = await get_youtube_metadata(job.article_url)
@@ -117,7 +118,14 @@ async def _run_youtube_pipeline(session: Session, job: Job) -> None:
         await _update_job(session, job, "scraping", "scraping", "completed",
                           f"Video: '{title}' ({duration}s)")
 
-        source_path = await download_youtube_video(job.article_url, tmpdir)
+        import asyncio as _asyncio
+        source_path, original_transcript = await _asyncio.gather(
+            download_youtube_video(job.article_url, tmpdir),
+            extract_subtitles(job.article_url),
+        )
+        if original_transcript:
+            job.original_transcript = original_transcript[:4000]
+            session.add(job); session.commit()
         logger.info("YouTube source downloaded: %s", source_path)
 
         # Step 2: GPT-4o translation/dubbing script
@@ -144,7 +152,22 @@ async def _run_youtube_pipeline(session: Session, job: Job) -> None:
         # Step 4: Replace audio on original video
         await _update_job(session, job, "rendering_video", "rendering_video", "started",
                           "Dubbing: replacing audio track on original video")
-        await dub_video(source_path, audio_bytes, output_mp4, tmpdir)
+        await dub_video(source_path, audio_bytes, output_mp4, tmpdir, target_duration=meta["duration"])
+
+        # Quality scoring
+        try:
+            lang_name = SCORE_LANG_NAMES.get(job.language, "the target language")
+            dubbed_dur = get_audio_duration(output_mp4)
+            timing = compute_timing_score(float(meta["duration"]), dubbed_dur)
+            trans_result = await score_translation(original_transcript or "", script, lang_name)
+            job.timing_score = timing["score"]
+            job.translation_score = trans_result.get("overall_score", 0)
+            import json as _json
+            job.quality_details = _json.dumps({"timing": timing, "translation": trans_result})
+            session.add(job); session.commit()
+            logger.info("Quality — timing: %d, translation: %d", job.timing_score, job.translation_score)
+        except Exception as qe:
+            logger.warning("Quality scoring failed (non-fatal): %s", qe)
 
     job.video_path = output_mp4
     session.add(job); session.commit()

@@ -98,6 +98,9 @@ export default function Review() {
   }
 
   const videoSrc = job.video_path ? getVideoUrl(job.video_path) : ''
+  const isYouTube = /youtube\.com|youtu\.be/i.test(job.article_url ?? '')
+  // YouTube dubs are always landscape regardless of format selected
+  const playerFormat = isYouTube ? 'landscape_16_9' : job.format
 
   return (
     <div className="page-container">
@@ -113,8 +116,8 @@ export default function Review() {
             {videoSrc ? (
               <VideoPlayer
                 src={videoSrc}
-                format={job.format}
-                className={job.format === 'vertical_9_16' ? '' : 'w-full aspect-video'}
+                format={playerFormat}
+                className={playerFormat === 'vertical_9_16' ? '' : 'w-full aspect-video'}
               />
             ) : (
               <div className="w-full aspect-video bg-navy-900/60 flex items-center justify-center">
@@ -157,7 +160,7 @@ export default function Review() {
             <div className="flex-1 overflow-y-auto max-h-64 lg:max-h-none">
               {job.script ? (
                 <p className="text-sm text-slate-300 leading-relaxed whitespace-pre-wrap">
-                  {job.script}
+                  {job.script.replace(/\*{1,2}([^*]+)\*{1,2}/g, '$1')}
                 </p>
               ) : (
                 <p className="text-sm text-slate-500 italic">Script will appear here once generated.</p>
@@ -177,6 +180,102 @@ export default function Review() {
               </a>
             </div>
           </div>
+
+          {/* Quality Scores — shown for all YouTube dub jobs */}
+          {isYouTube && (
+            <div className="glass-card p-5">
+              <div className="flex items-center gap-2 mb-4">
+                <span className="text-azure-400 text-base">⚡</span>
+                <h3 className="text-sm font-semibold text-white">Dub Quality Score</h3>
+              </div>
+              <div className="space-y-4">
+
+                {/* Timing Match */}
+                <div>
+                  <div className="flex justify-between text-xs mb-1">
+                    <span className="text-slate-400">Timing Match</span>
+                    <span className={
+                      job.timing_score == null ? 'text-slate-500' :
+                      job.timing_score >= 90 ? 'text-emerald-400' :
+                      job.timing_score >= 70 ? 'text-yellow-400' : 'text-red-400'
+                    }>
+                      {job.timing_score != null ? `${job.timing_score}%` : 'Not scored'}
+                    </span>
+                  </div>
+                  <div className="h-2 bg-white/10 rounded-full overflow-hidden">
+                    <div className={`h-full rounded-full transition-all ${
+                      job.timing_score == null ? 'bg-slate-700' :
+                      job.timing_score >= 90 ? 'bg-emerald-500' :
+                      job.timing_score >= 70 ? 'bg-yellow-500' : 'bg-red-500'
+                    }`} style={{ width: `${job.timing_score ?? 0}%` }} />
+                  </div>
+                  <p className="text-xs text-slate-600 mt-1">How well dubbed audio length matches original video</p>
+                </div>
+
+                {/* Translation Quality */}
+                {(() => {
+                  const noTranscript = (() => { try { return JSON.parse(job.quality_details ?? '{}')?.translation?.no_transcript } catch { return false } })()
+                  const score = job.translation_score
+                  return (
+                    <div>
+                      <div className="flex justify-between text-xs mb-1">
+                        <span className="text-slate-400">{noTranscript ? 'Script Quality' : 'Translation Quality'}</span>
+                        <span className={
+                          score == null ? 'text-slate-500' :
+                          score === 0 ? 'text-slate-500' :
+                          score >= 80 ? 'text-emerald-400' :
+                          score >= 60 ? 'text-yellow-400' : 'text-red-400'
+                        }>
+                          {score != null && score > 0 ? `${score}%` : 'Not scored'}
+                        </span>
+                      </div>
+                      <div className="h-2 bg-white/10 rounded-full overflow-hidden">
+                        <div className={`h-full rounded-full transition-all ${
+                          score == null || score === 0 ? 'bg-slate-700' :
+                          score >= 80 ? 'bg-emerald-500' :
+                          score >= 60 ? 'bg-yellow-500' : 'bg-red-500'
+                        }`} style={{ width: `${score && score > 0 ? score : 0}%` }} />
+                      </div>
+                      <p className="text-xs text-slate-600 mt-1">
+                        {noTranscript
+                          ? 'No subtitles found — GPT-4o rated script fluency directly'
+                          : 'GPT-4o rates accuracy vs original English transcript'}
+                      </p>
+                    </div>
+                  )
+                })()}
+
+                {/* Duration details */}
+                {job.quality_details && (() => {
+                  try {
+                    const d = JSON.parse(job.quality_details!)
+                    const t = d.timing
+                    return t ? (
+                      <div className="flex gap-4 pt-1 text-xs text-slate-500 border-t border-white/5">
+                        <span>Original: <b className="text-slate-300">{t.original_secs}s</b></span>
+                        <span>Dubbed: <b className="text-slate-300">{t.dubbed_secs}s</b></span>
+                        <span>Diff: <b className={Math.abs(t.diff_secs) <= 2 ? 'text-emerald-400' : 'text-yellow-400'}>Δ{t.diff_secs}s</b></span>
+                      </div>
+                    ) : null
+                  } catch { return null }
+                })()}
+
+                {/* Original transcript */}
+                {job.original_transcript ? (
+                  <details className="pt-1">
+                    <summary className="text-xs text-slate-400 cursor-pointer hover:text-slate-200 select-none font-medium">
+                      📄 Original English Transcript
+                    </summary>
+                    <p className="text-xs text-slate-400 mt-2 leading-relaxed max-h-32 overflow-y-auto whitespace-pre-wrap border border-white/5 rounded-lg p-2 bg-white/5">
+                      {job.original_transcript}
+                    </p>
+                  </details>
+                ) : (
+                  <p className="text-xs text-slate-600 italic pt-1">No transcript available for this job. New jobs will show transcript here.</p>
+                )}
+              </div>
+            </div>
+          )}
 
           {/* Actions */}
           {!approved ? (

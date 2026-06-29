@@ -103,7 +103,7 @@ export default function VideoPlayer({ src, className, format }: VideoPlayerProps
       <video
         ref={videoRef}
         src={src}
-        className="w-full h-full object-cover"
+        className="w-full h-full object-contain"
         onTimeUpdate={handleTimeUpdate}
         onLoadedMetadata={handleLoadedMetadata}
         onEnded={() => setPlaying(false)}

@@ -27,6 +27,10 @@ export interface Job {
   error?: string
   steps: JobStep[]
   created_at: string
+  original_transcript?: string
+  timing_score?: number
+  translation_score?: number
+  quality_details?: string
 }
 
 export type Language = 'ta-IN' | 'hi-IN' | 'te-IN' | 'kn-IN' | 'en-IN'

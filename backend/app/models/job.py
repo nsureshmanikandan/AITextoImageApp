@@ -15,6 +15,10 @@ class Job(SQLModel, table=True):
     format: str = Field(default="landscape_16_9")   # vertical_9_16 | landscape_16_9
     script: Optional[str] = Field(default=None)
     video_path: Optional[str] = Field(default=None)
+    original_transcript: str | None = Field(default=None)
+    timing_score: int | None = Field(default=None)
+    translation_score: int | None = Field(default=None)
+    quality_details: str | None = Field(default=None)
 
     def append_step(self, step: str, status: str, message: str) -> None:
         steps = json.loads(self.steps_json)
@@ -47,3 +51,7 @@ class JobRead(SQLModel):
     format: str
     script: Optional[str]
     video_path: Optional[str]
+    original_transcript: Optional[str] = None
+    timing_score: Optional[int] = None
+    translation_score: Optional[int] = None
+    quality_details: Optional[str] = None

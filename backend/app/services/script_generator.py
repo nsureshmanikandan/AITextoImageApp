@@ -9,6 +9,25 @@ from openai import AsyncAzureOpenAI
 
 logger = logging.getLogger(__name__)
 
+TECH_TERMS = [
+    "LLM", "RAG", "API", "GPT", "GPT-4", "GPT-4o", "AI", "ML", "NLP",
+    "BERT", "Transformer", "ChatGPT", "OpenAI", "Google", "YouTube", "GitHub",
+    "LinkedIn", "Twitter", "Instagram", "Facebook", "WhatsApp", "Netflix",
+    "Amazon", "Microsoft", "Apple", "Android", "iOS", "URL", "HTTP", "HTTPS",
+    "JSON", "REST", "GraphQL", "Docker", "Kubernetes", "AWS", "Azure", "GCP",
+    "llms.txt", "HTML", "CSS", "JavaScript", "Python", "React", "FastAPI",
+    "WebSocket", "OAuth", "JWT", "SQL", "NoSQL", "Redis", "MongoDB",
+    "VernacularCast", "Wikipedia",
+]
+
+def _tech_terms_instruction() -> str:
+    terms = ", ".join(TECH_TERMS)
+    return (
+        f"CRITICAL: Keep these technical terms and brand names EXACTLY in English "
+        f"(do NOT transliterate or translate them): {terms}. "
+        f"These must appear as-is in the output so they are pronounced correctly."
+    )
+
 LANGUAGE_NAMES = {
     "ta-IN": "Tamil",
     "hi-IN": "Hindi",
@@ -25,7 +44,9 @@ SYSTEM_PROMPT = (
     "- Report the facts from the article naturally, as if speaking to a regional audience\n"
     "- If the article is short, expand naturally with context — do not refuse or apologise\n"
     "- Aim for 60 seconds when read aloud (roughly 120-150 words)\n"
-    "- End the script immediately after the last sentence — do NOT add any AI disclaimer or attribution line\n"
+    "- End the script immediately after the last sentence — no AI disclaimer\n"
+    "- {tech_terms_instruction}\n"
+    "- CRITICAL: When writing numbers with Tamil suffixes, do NOT use a hyphen. Write '2026ல்' NOT '2026-ல்'. No hyphens between digits and Tamil letters.\n"
     "Output the spoken script ONLY."
 )
 
@@ -61,6 +82,8 @@ async def generate_dub_script(title: str, description: str, duration_secs: int, 
         f"Write ONLY the spoken narration — no headers, no markdown, no stage directions. "
         f"Target approximately {target_words} words so the narration matches the video duration of {duration_secs} seconds. "
         f"Keep the meaning faithful to the original. No headers, no markdown, no AI disclaimer at the end. "
+        f"{_tech_terms_instruction()} "
+        f"CRITICAL: Do NOT use hyphens between numbers and Tamil/Indian language suffixes. Write '2026ல்' NOT '2026-ல்'. "
         f"Output the spoken narration ONLY."
     )
     user = (
@@ -107,7 +130,10 @@ async def generate_script(title: str, body: str, language: str, source_url: str)
     response = await client.chat.completions.create(
         model=settings.azure_openai_deployment,
         messages=[
-            {"role": "system", "content": SYSTEM_PROMPT.format(language_name=language_name)},
+            {"role": "system", "content": SYSTEM_PROMPT.format(
+                language_name=language_name,
+                tech_terms_instruction=_tech_terms_instruction()
+            )},
             {"role": "user", "content": user_message},
         ],
         temperature=0.7,

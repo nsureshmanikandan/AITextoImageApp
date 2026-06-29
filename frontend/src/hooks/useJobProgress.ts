@@ -46,6 +46,8 @@ export function useJobProgress(jobId: string | null) {
     let reconnectTimer: ReturnType<typeof setTimeout>
 
     // --- HTTP polling fallback (runs regardless of WS) ---
+    // Poll fast (1s) while job is running so we catch short steps like scraping
+    const POLL_INTERVAL = 1000
     pollRef.current = setInterval(async () => {
       try {
         const job = await getJob(jobId)
@@ -55,12 +57,23 @@ export function useJobProgress(jobId: string | null) {
         }
         updateJob(enriched)
         setCurrentJob(enriched)
-        // Stop polling once terminal state reached
+        // Stop polling once terminal state reached, then do one final fetch to load quality scores
         if (['awaiting_review','ready','approved','failed'].includes(job.status)) {
           clearInterval(pollRef.current!)
+          setTimeout(async () => {
+            try {
+              const final = await getJob(jobId)
+              const enriched: Job = {
+                ...final,
+                steps: final.steps?.length ? normaliseSteps(final.steps) : deriveStepsFromStatus(final.status),
+              }
+              updateJob(enriched)
+              setCurrentJob(enriched)
+            } catch { /* ignore */ }
+          }, 2000)
         }
       } catch { /* ignore */ }
-    }, 2500)
+    }, POLL_INTERVAL)
 
     // --- WebSocket (real-time updates on top of polling) ---
     function connect() {
