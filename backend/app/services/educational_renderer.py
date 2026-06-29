@@ -996,8 +996,8 @@ def _scene_learning_path(chapter, topic, phase=0.0):
             text_x    = PAD + label_w + 22
             mid_y     = ry + row_h // 2
             line_gap  = int(FS_BODY * 1.3)
-            draw_text(draw, (text_x, mid_y - line_gap // 2), cert_str[:90],
-                      font=F(FS_BODY - 1, bold=True), fill=GRAY["t"], anchor="lm")
+            draw_text(draw, (text_x, mid_y - line_gap // 2), cert_str[:120],
+                      font=F(FS_BODY - 2, bold=True), fill=GRAY["t"], anchor="lm")
             if res_str:
                 draw_text(draw, (text_x, mid_y + line_gap // 2 + 2), res_str[:80],
                           font=F(FS_BODY - 4), fill=(160, 160, 180, 220), anchor="lm")

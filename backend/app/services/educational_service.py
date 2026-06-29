@@ -55,8 +55,10 @@ async def generate_educational_script(
         f"learning_path (ONLY for chapter 6 — an array of exactly 5 objects covering the progression for THIS specific topic; "
         f"each object must have: level (one of: Beginner, Intermediate, Advanced, Expert, Certifications), "
         f"desc (one short sentence in {language_name} describing what to do at this level), "
-        f"certs (array of 1-3 real certification exam names with exam codes relevant to this topic — e.g. 'AZ-900: Azure Fundamentals', 'AWS SAA-C03: Solutions Architect', 'Google ACE: Associate Cloud Engineer', 'CKA: Certified Kubernetes Admin', 'TensorFlow Developer Certificate' — use REAL exam names from Microsoft/AWS/Google/Linux Foundation/etc.), "
-        f"resource (one short English string — the best free learning platform for this level, e.g. 'learn.microsoft.com', 'skillbuilder.aws', 'cloud.google.com/training', 'coursera.org', 'kaggle.com/learn', 'kubernetes.io/docs'). "
+        f"certs (array of EXACTLY 2-3 real certification exam names relevant to this topic — MUST include certs from at least 2 different providers among Microsoft Azure, AWS Amazon, and Google Cloud for EVERY level; "
+        f"format each as 'EXAM-CODE: Full Name' e.g. 'AZ-900: Azure Fundamentals', 'AWS CLF-C02: Cloud Practitioner', 'GCP ACE: Associate Cloud Engineer', 'AZ-104: Azure Administrator', 'AWS SAA-C03: Solutions Architect', 'GCP PCA: Professional Cloud Architect', 'DP-100: Azure Data Scientist', 'AWS MLS-C01: ML Specialty', 'GCP PMLE: Professional ML Engineer', 'CKA: Certified Kubernetes Admin', 'TF-Dev: TensorFlow Developer'; "
+        f"always pick the most relevant exams for THIS specific topic from Azure + AWS + Google), "
+        f"resource (one short English string — the best free learning platform for this level, e.g. 'learn.microsoft.com · skillbuilder.aws', 'cloud.google.com/training · coursera.org', 'kaggle.com/learn · fast.ai'). "
         f"For other chapters learning_path must be an empty array []). "
         f"No markdown, no explanation, JSON array only."
     )
