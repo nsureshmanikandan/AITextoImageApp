@@ -236,20 +236,31 @@ def _compose_slide(
         draw.text((lx, ly), live_text, font=live_font, fill=(255, 255, 255))
 
     # ── Article title (bottom) ────────────────────────────────────────────────
-    import textwrap
-    lines = textwrap.wrap(title or "Regional News", width=max(28, width // 22))[:3]
-    line_h = int(font_title.size * 1.35)
+    import textwrap as _textwrap
+    title_text = title or "Regional News"
+    title_pad  = int(width * 0.04)          # horizontal margin from edges
+    max_line_w = width - title_pad * 2
+
+    # Shrink font until every wrapped line fits within max_line_w
+    ft = font_title
+    for attempt in range(8):
+        lines = _textwrap.wrap(title_text, width=max(20, width // 20))[:3]
+        if all((draw.textbbox((0, 0), ln, font=ft)[2] - draw.textbbox((0, 0), ln, font=ft)[0]) <= max_line_w
+               for ln in lines):
+            break
+        ft = _font(max(22, ft.size - 3), text=title_text)
+
+    line_h = int(ft.size * 1.35)
     total_text_h = len(lines) * line_h
     text_y = height - total_text_h - int(height * 0.10)
 
     for i, line in enumerate(lines):
-        bb = draw.textbbox((0, 0), line, font=font_title)
+        bb  = draw.textbbox((0, 0), line, font=ft)
         lw2 = bb[2] - bb[0]
-        x = (width - lw2) // 2
-        y = text_y + i * line_h
-        # shadow
-        draw.text((x + 2, y + 2), line, font=font_title, fill=(0, 0, 0, 180))
-        draw.text((x, y), line, font=font_title, fill=(255, 255, 255))
+        x   = max(title_pad, (width - lw2) // 2)   # never go past left margin
+        y   = text_y + i * line_h
+        draw.text((x + 2, y + 2), line, font=ft, fill=(0, 0, 0, 180))
+        draw.text((x, y), line, font=ft, fill=(255, 255, 255))
 
     # ── Slide progress dots ───────────────────────────────────────────────────
     dot_area_y = height - int(height * 0.04)

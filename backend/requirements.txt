@@ -5,6 +5,7 @@ httpx
 beautifulsoup4
 lxml
 openai>=1.0
+azure-identity>=1.15
 edge-tts
 ffmpeg-python
 Pillow

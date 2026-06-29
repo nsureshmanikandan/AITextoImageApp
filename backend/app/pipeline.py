@@ -272,6 +272,82 @@ async def _run_brand_ad_pipeline(session: Session, job: Job) -> None:
     await _update_job(session, job, "rendering_video", "rendering_video", "completed",
                       f"Brand ad saved: {Path(video_path).name}")
 
+    # ── Sora-2 prompt generation (non-fatal) ──────────────────────────────────
+    try:
+        from app.services.sora_service import build_sora_prompt, start_video_generation
+        await _update_job(session, job, "sora_prompt", "sora_prompt", "started",
+                          "Generating Sora-2 video prompt with GPT-4o")
+        sora_prompt = await build_sora_prompt(
+            brand_name=job.article_url,
+            product=brand_params.get("product", ""),
+            key_message=brand_params.get("key_message", ""),
+            target_audience=brand_params.get("target_audience", ""),
+            cta=brand_params.get("cta", ""),
+            tone=brand_params.get("tone", "energetic"),
+            video_type=brand_params.get("video_type"),
+        )
+        # Persist prompt in brand_data
+        brand_params["sora_prompt"] = sora_prompt
+        brand_params["sora_status"] = "prompt_ready"
+        job.brand_data = _json.dumps(brand_params)
+        session.add(job); session.commit()
+        await _update_job(session, job, "sora_prompt", "sora_prompt", "completed",
+                          f"Sora-2 prompt ready ({len(sora_prompt)} chars)")
+
+        # Attempt API submission (will fail without gateway credentials)
+        try:
+            vid_id = start_video_generation(sora_prompt)
+            brand_params["sora_status"] = "submitted"
+            brand_params["sora_videostoreid"] = vid_id
+            job.brand_data = _json.dumps(brand_params)
+            session.add(job); session.commit()
+            logger.info("Sora-2 job submitted: %s", vid_id)
+            # Start background polling — save video to media/job_{id}_sora.mp4
+            asyncio.create_task(_poll_sora_video(job.id, vid_id))
+        except Exception as sub_err:
+            brand_params["sora_status"] = "credentials_required"
+            brand_params["sora_error"] = str(sub_err)[:300]
+            job.brand_data = _json.dumps(brand_params)
+            session.add(job); session.commit()
+            logger.warning("Sora-2 submission skipped (credentials not configured): %s", sub_err)
+
+    except Exception as se:
+        logger.warning("Sora-2 prompt generation failed (non-fatal): %s", se)
+
+
+async def _poll_sora_video(job_id: int, videostoreid: str) -> None:
+    """Background task: poll Sora until video is ready, save to disk, update job."""
+    import json as _json
+    from app.services.sora_service import download_sora_video
+    out_dir = Path(settings.local_media_dir).resolve()
+    save_path = str(out_dir / f"job_{job_id}_sora.mp4")
+    try:
+        logger.info("Sora polling started for job %d (%s)", job_id, videostoreid)
+        path = await asyncio.get_event_loop().run_in_executor(
+            None, lambda: download_sora_video(videostoreid, save_path)
+        )
+        with Session(engine) as session:
+            job = session.get(Job, job_id)
+            if job:
+                bd = _json.loads(job.brand_data or "{}")
+                bd["sora_status"] = "completed"
+                bd["sora_video_path"] = path
+                job.brand_data = _json.dumps(bd)
+                session.add(job); session.commit()
+                await ws_manager.broadcast(job_id, {"job_id": job_id, "sora_ready": True,
+                                                     "sora_video_path": path})
+                logger.info("Sora video ready for job %d: %s", job_id, path)
+    except Exception as e:
+        logger.warning("Sora polling failed for job %d: %s", job_id, e)
+        with Session(engine) as session:
+            job = session.get(Job, job_id)
+            if job:
+                bd = _json.loads(job.brand_data or "{}")
+                bd["sora_status"] = "failed"
+                bd["sora_error"] = str(e)[:300]
+                job.brand_data = _json.dumps(bd)
+                session.add(job); session.commit()
+
 
 # ── Educational pipeline ───────────────────────────────────────────────────────
 async def _run_educational_pipeline(session: Session, job: Job) -> None:

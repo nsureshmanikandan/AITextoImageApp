@@ -3,7 +3,8 @@ import { useParams, useNavigate } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import {
   CheckCircle2, RefreshCw, Trash2, ExternalLink,
-  FileText, Clock, Languages, Maximize2, ChevronLeft, ChevronRight, Download
+  FileText, Clock, Languages, Maximize2, ChevronLeft, ChevronRight, Download,
+  Video, Copy, AlertCircle
 } from 'lucide-react'
 import VideoPlayer from '../components/VideoPlayer'
 import Badge from '../components/Badge'
@@ -120,8 +121,94 @@ export default function Review() {
         transition={{ duration: 0.4 }}
         className="grid grid-cols-1 lg:grid-cols-5 gap-6"
       >
-        {/* Video Player (60%) */}
+        {/* Left column (60%) — Sora video for brand_ad, otherwise main MP4 */}
         <div className="lg:col-span-3">
+          {job.mode === 'brand_ad' ? (() => {
+            let bd: Record<string, string> = {}
+            try { bd = JSON.parse(job.brand_data ?? '{}') } catch { /* */ }
+            const soraVidPath = bd.sora_video_path || ''
+            const soraStatus  = bd.sora_status     || ''
+            const soraVidId   = bd.sora_videostoreid || ''
+            const soraVideoUrl = soraVidPath ? `/api/jobs/${id}/sora-video` : ''
+            const isCompleted  = soraStatus === 'completed' && soraVidPath
+            const isSubmitted  = soraStatus === 'submitted' && !soraVidPath
+            const soraPrompt = bd.sora_prompt || ''
+            return (
+              <div className="glass-card overflow-hidden">
+                {isCompleted && soraVideoUrl ? (
+                  <>
+                    {/* Full-width video */}
+                    <video
+                      src={soraVideoUrl}
+                      controls
+                      autoPlay
+                      loop
+                      muted
+                      playsInline
+                      className="w-full"
+                      style={{ minHeight: '480px', maxHeight: '640px' }}
+                    />
+                    {/* Prompt below video */}
+                    {soraPrompt && (
+                      <div className="p-4 border-t border-white/5">
+                        <div className="flex items-center justify-between mb-2">
+                          <p className="text-xs font-semibold text-purple-300 flex items-center gap-1.5">
+                            <Video className="w-3.5 h-3.5" /> Sora-2 Prompt
+                          </p>
+                          <div className="flex items-center gap-2">
+                            <button
+                              onClick={() => navigator.clipboard.writeText(soraPrompt)}
+                              className="p-1 rounded text-slate-500 hover:text-purple-300 transition-colors"
+                              title="Copy prompt"
+                            >
+                              <Copy className="w-3.5 h-3.5" />
+                            </button>
+                            <a
+                              href={soraVideoUrl}
+                              download={`sora_job_${id}.mp4`}
+                              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-purple-600/80 hover:bg-purple-500 text-white text-xs font-medium transition-colors"
+                            >
+                              <Download className="w-3.5 h-3.5" /> Download
+                            </a>
+                          </div>
+                        </div>
+                        <p className="text-xs text-slate-300 leading-relaxed whitespace-pre-wrap max-h-32 overflow-y-auto">
+                          {soraPrompt}
+                        </p>
+                      </div>
+                    )}
+                  </>
+                ) : (
+                  <div className="w-full aspect-video bg-navy-900/60 flex items-center justify-center flex-col gap-3">
+                    {isSubmitted ? (
+                      <>
+                        <div className="w-12 h-12 border-2 border-purple-500 border-t-transparent rounded-full animate-spin" />
+                        <p className="text-slate-400 text-sm">Sora-2 rendering video…</p>
+                        <p className="text-slate-600 text-xs font-mono">{soraVidId}</p>
+                        <button
+                          onClick={async () => {
+                            try {
+                              const res = await fetch(`/api/jobs/${id}/sora-check`, { method: 'POST' })
+                              const data = await res.json()
+                              if (data.status === 'completed') {
+                                const fresh = await fetch(`/api/jobs/${id}`).then(r => r.json())
+                                updateJob(fresh)
+                              }
+                            } catch { /* ignore */ }
+                          }}
+                          className="text-xs px-3 py-1.5 rounded-lg bg-purple-600/60 hover:bg-purple-500 text-white transition-colors"
+                        >
+                          Check Status
+                        </button>
+                      </>
+                    ) : (
+                      <p className="text-slate-500 text-sm">Sora video not yet available</p>
+                    )}
+                  </div>
+                )}
+              </div>
+            )
+          })() : (
           <div className="glass-card overflow-hidden">
             {videoSrc ? (
               <VideoPlayer
@@ -142,6 +229,7 @@ export default function Review() {
               </div>
             )}
           </div>
+          )}
 
           {/* Batch navigation */}
           {isBatch && (
@@ -342,6 +430,20 @@ export default function Review() {
                 ) : (
                   <p className="text-xs text-slate-600 italic pt-1">No transcript available for this job. New jobs will show transcript here.</p>
                 ))}
+              </div>
+            </div>
+          )}
+
+          {/* Flux-2 Brand Ad MP4 — below script */}
+          {job.mode === 'brand_ad' && videoSrc && (
+            <div className="glass-card overflow-hidden">
+              <VideoPlayer
+                src={videoSrc}
+                format={playerFormat}
+                className="w-full aspect-video"
+              />
+              <div className="p-2 bg-white/5 border-t border-white/5">
+                <span className="text-xs text-slate-400">Flux-2 Brand Ad MP4</span>
               </div>
             </div>
           )}

@@ -200,6 +200,62 @@ def delete_job(job_id: int, session: Session = Depends(get_session)):
     session.commit()
 
 
+@router.post("/{job_id}/sora-check")
+async def sora_check(job_id: int, background_tasks: BackgroundTasks,
+                     session: Session = Depends(get_session)):
+    """Manually trigger a Sora status check / restart polling for a submitted job."""
+    import json as _json
+    from app.pipeline import _poll_sora_video
+    job = session.get(Job, job_id)
+    if not job:
+        raise HTTPException(404, "Job not found")
+    bd = _json.loads(job.brand_data or "{}")
+    vid_id = bd.get("sora_videostoreid", "")
+    if not vid_id:
+        raise HTTPException(400, "No Sora videostoreid on this job")
+    # If already completed and file exists, just return current state
+    existing = bd.get("sora_video_path", "")
+    if existing and Path(existing).exists():
+        return {"status": "completed", "sora_video_path": existing}
+    # Re-poll once immediately
+    from app.services.sora_service import poll_sora_video
+    result = poll_sora_video(vid_id)
+    if result["ready"]:
+        import base64 as _b64
+        from app.config import settings
+        out_dir = Path(settings.local_media_dir).resolve()
+        save_path = str(out_dir / f"job_{job_id}_sora.mp4")
+        Path(save_path).parent.mkdir(parents=True, exist_ok=True)
+        with open(save_path, "wb") as f:
+            f.write(_b64.b64decode(result["base64"]))
+        bd["sora_status"] = "completed"
+        bd["sora_video_path"] = save_path
+        job.brand_data = _json.dumps(bd)
+        session.add(job); session.commit()
+        return {"status": "completed", "sora_video_path": save_path}
+    # Still rendering — restart background poller
+    background_tasks.add_task(_poll_sora_video, job_id, vid_id)
+    return {"status": "polling_started", "videostoreid": vid_id}
+
+
+@router.get("/{job_id}/sora-video")
+def download_sora_video(job_id: int, session: Session = Depends(get_session)):
+    """Stream the completed Sora-2 MP4 for a brand ad job."""
+    import json as _json
+    job = session.get(Job, job_id)
+    if not job:
+        raise HTTPException(404, "Job not found")
+    bd = _json.loads(job.brand_data or "{}")
+    path = bd.get("sora_video_path", "")
+    if not path or not Path(path).exists():
+        raise HTTPException(404, "Sora video not yet available")
+    return FileResponse(
+        path=path,
+        media_type="video/mp4",
+        filename=f"sora_job_{job_id}.mp4",
+    )
+
+
 @router.get("/{job_id}/video")
 def download_video(job_id: int, session: Session = Depends(get_session)):
     job = session.get(Job, job_id)
