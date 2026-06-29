@@ -12,6 +12,7 @@ Two modes — auto-detected from the URL:
     Downloads the original video, generates a translated narration, dubs it.
 """
 
+import asyncio
 import logging
 import re
 import tempfile
@@ -26,6 +27,9 @@ from app.services.tts_service import synthesize_speech
 from app.services.video_renderer import render_video
 from app.services.youtube_dubber import download_youtube_video, extract_subtitles, get_youtube_metadata, dub_video
 from app.services.quality_scorer import score_translation, compute_timing_score, get_audio_duration, LANGUAGE_NAMES as SCORE_LANG_NAMES
+from app.services.flux_service import generate_image
+from app.services.brand_ad_service import generate_brand_ad_script
+from app.services.educational_service import generate_educational_script
 from app.ws_manager import ws_manager
 from app.config import settings
 
@@ -83,7 +87,14 @@ async def _run_article_pipeline(session: Session, job: Job) -> None:
     await _update_job(session, job, "generating_voice", "generating_voice", "completed",
                       f"Audio generated ({len(audio_bytes)} bytes)")
 
-    # Step 4: Render slideshow
+    # Step 4: Render slideshow — fall back to Pexels if article has no images
+    images = article.get("images", [])
+    if not images:
+        from app.services.pexels_service import fetch_pexels_image
+        pexels_img = await fetch_pexels_image(article["title"], job.id, 0, settings.local_media_dir)
+        if pexels_img:
+            images = [pexels_img]
+
     await _update_job(session, job, "rendering_video", "rendering_video", "started",
                       "Rendering slideshow MP4 with FFmpeg")
     video_path = await render_video(
@@ -94,12 +105,25 @@ async def _run_article_pipeline(session: Session, job: Job) -> None:
         job_id=job.id,
         media_dir=settings.local_media_dir,
         title=article["title"],
-        images=article.get("images", []),
+        images=images,
     )
     job.video_path = video_path
     session.add(job); session.commit()
     await _update_job(session, job, "rendering_video", "rendering_video", "completed",
                       f"Slideshow saved: {Path(video_path).name}")
+
+    # Quality scoring — translation accuracy of article → regional script
+    try:
+        import json as _json
+        lang_name = SCORE_LANG_NAMES.get(job.language, "the target language")
+        original_text = f"{article['title']}\n\n{article['body'][:2000]}"
+        trans_result = await score_translation(original_text, script, lang_name)
+        job.translation_score = trans_result.get("overall_score", 0)
+        job.quality_details = _json.dumps({"translation": trans_result})
+        session.add(job); session.commit()
+        logger.info("Article quality score — translation: %d", job.translation_score)
+    except Exception as qe:
+        logger.warning("Article quality scoring failed (non-fatal): %s", qe)
 
 
 # ── YouTube dubbing pipeline ──────────────────────────────────────────────────
@@ -123,6 +147,18 @@ async def _run_youtube_pipeline(session: Session, job: Job) -> None:
             download_youtube_video(job.article_url, tmpdir),
             extract_subtitles(job.article_url),
         )
+
+        # If no subtitles (common for Shorts), transcribe audio with Azure STT
+        if not original_transcript:
+            await _update_job(session, job, "scraping", "scraping", "started",
+                              "No subtitles found — transcribing audio with Azure Speech-to-Text")
+            from app.services.stt_service import transcribe_video
+            original_transcript = await transcribe_video(source_path)
+            if original_transcript:
+                logger.info("Azure STT transcript: %d chars", len(original_transcript))
+            else:
+                logger.warning("Azure STT returned no transcript — quality score will use script-only mode")
+
         if original_transcript:
             job.original_transcript = original_transcript[:4000]
             session.add(job); session.commit()
@@ -175,6 +211,180 @@ async def _run_youtube_pipeline(session: Session, job: Job) -> None:
                       f"Dubbed video saved: {Path(output_mp4).name}")
 
 
+# ── Brand Ad pipeline ─────────────────────────────────────────────────────────
+async def _run_brand_ad_pipeline(session: Session, job: Job) -> None:
+    import json as _json
+    out_dir = Path(settings.local_media_dir).resolve()
+    out_dir.mkdir(parents=True, exist_ok=True)
+    output_mp4 = str(out_dir / f"job_{job.id}.mp4")
+
+    brand_params = _json.loads(job.brand_data or "{}")
+
+    await _update_job(session, job, "generating_script", "generating_script", "started",
+                      f"GPT-4o writing brand ad script for {job.article_url}")
+    scenes = await generate_brand_ad_script(
+        brand_name=job.article_url,
+        product=brand_params.get("product", ""),
+        target_audience=brand_params.get("target_audience", ""),
+        key_message=brand_params.get("key_message", ""),
+        cta=brand_params.get("cta", ""),
+        tone=brand_params.get("tone", "energetic"),
+        language=job.language,
+        brand_description=brand_params.get("brand_description", ""),
+    )
+    full_script = " ".join(s["narration"] for s in scenes)
+    job.script = full_script
+    session.add(job); session.commit()
+    await _update_job(session, job, "generating_script", "generating_script", "completed",
+                      f"{len(scenes)} scenes generated")
+
+    await _update_job(session, job, "generating_voice", "generating_voice", "started",
+                      "Synthesising brand ad voiceover")
+    audio_bytes = await synthesize_speech(full_script, job.language)
+    await _update_job(session, job, "generating_voice", "generating_voice", "completed",
+                      f"Audio: {len(audio_bytes)} bytes")
+
+    await _update_job(session, job, "rendering_video", "rendering_video", "started",
+                      "Generating Flux images and rendering brand ad video")
+    images = []
+    for scene in scenes:
+        img_path = await generate_image(scene["image_prompt"], job.id, scene["scene"], settings.local_media_dir)
+        if not img_path:
+            # Flux failed — use scene-specific Pexels search query
+            from app.services.pexels_service import fetch_pexels_image
+            query = scene.get("search_query") or scene["image_prompt"][:50]
+            img_path = await fetch_pexels_image(query, job.id, scene["scene"], settings.local_media_dir)
+        images.append(img_path)
+
+    video_path = await render_video(
+        script=full_script,
+        audio_bytes=audio_bytes,
+        language=job.language,
+        video_format=job.format,
+        job_id=job.id,
+        media_dir=settings.local_media_dir,
+        title=f"{job.article_url} — {brand_params.get('product', '')}",
+        images=[i for i in images if i],
+        video_mode="brand_ad",
+    )
+    job.video_path = video_path
+    session.add(job); session.commit()
+    await _update_job(session, job, "rendering_video", "rendering_video", "completed",
+                      f"Brand ad saved: {Path(video_path).name}")
+
+
+# ── Educational pipeline ───────────────────────────────────────────────────────
+async def _run_educational_pipeline(session: Session, job: Job) -> None:
+    import json as _json
+    out_dir = Path(settings.local_media_dir).resolve()
+    out_dir.mkdir(parents=True, exist_ok=True)
+
+    edu_params = _json.loads(job.brand_data or "{}")
+    topic = edu_params.get("topic", job.article_url)
+    level = edu_params.get("level", "professional")
+    duration_mins = edu_params.get("duration_mins", 5)
+
+    await _update_job(session, job, "generating_script", "generating_script", "started",
+                      f"GPT-4o structuring educational video: {topic}")
+    chapters = await generate_educational_script(
+        topic=topic, level=level, language=job.language, duration_mins=duration_mins
+    )
+    full_script = " ".join(c["narration"] for c in chapters)
+    job.script = full_script
+    session.add(job); session.commit()
+    await _update_job(session, job, "generating_script", "generating_script", "completed",
+                      f"{len(chapters)} chapters generated")
+
+    await _update_job(session, job, "generating_voice", "generating_voice", "started",
+                      "Synthesising educational voiceover")
+    audio_bytes = await synthesize_speech(full_script, job.language)
+    await _update_job(session, job, "generating_voice", "generating_voice", "completed",
+                      f"Audio: {len(audio_bytes)} bytes")
+
+    await _update_job(session, job, "rendering_video", "rendering_video", "started",
+                      "Rendering animated educational video (LinkedIn-quality)")
+    from app.services.educational_renderer import render_educational_video_direct
+    video_path = await asyncio.get_event_loop().run_in_executor(
+        None,
+        lambda: render_educational_video_direct(
+            chapters=chapters,
+            topic=topic,
+            audio_bytes=audio_bytes,
+            media_dir=settings.local_media_dir,
+            job_id=job.id,
+        ),
+    )
+    job.video_path = video_path
+    session.add(job); session.commit()
+    await _update_job(session, job, "rendering_video", "rendering_video", "completed",
+                      f"Educational video saved: {Path(video_path).name}")
+
+
+# ── Batch pipeline ────────────────────────────────────────────────────────────
+async def _run_batch_pipeline(session: Session, job: Job) -> None:
+    """
+    Batch mode: brand_data contains {"topics": ["Topic A", "Topic B", ...]}.
+    We run one educational sub-pipeline per topic sequentially, saving each
+    video to a separate file. The parent job's video_path points to the last one
+    so the review page can display something; all paths are logged.
+    """
+    import json as _json
+    batch_params = _json.loads(job.brand_data or "{}")
+    topics = batch_params.get("topics", [])
+    if not topics:
+        raise ValueError("Batch job has no topics in brand_data")
+
+    await _update_job(session, job, "generating_script", "generating_script", "started",
+                      f"Batch: processing {len(topics)} topic(s)")
+
+    from app.services.educational_service import generate_educational_script
+    from app.services.educational_renderer import render_educational_video_direct
+    from app.services.tts_service import synthesize_speech
+
+    all_videos: list[dict] = []  # {"topic": str, "path": str}
+
+    for idx, topic in enumerate(topics):
+        await _update_job(session, job, "rendering_video", "rendering_video", "started",
+                          f"[{idx+1}/{len(topics)}] Generating: {topic}")
+        try:
+            chapters = await generate_educational_script(
+                topic=topic, level="professional",
+                language=job.language, duration_mins=5
+            )
+            full_script = " ".join(c["narration"] for c in chapters)
+            audio_bytes = await synthesize_speech(full_script, job.language)
+            video_path = await asyncio.get_event_loop().run_in_executor(
+                None,
+                lambda _t=topic, _ch=chapters, _ab=audio_bytes, _idx=idx: render_educational_video_direct(
+                    chapters=_ch,
+                    topic=_t,
+                    audio_bytes=_ab,
+                    media_dir=settings.local_media_dir,
+                    job_id=f"{job.id}_t{_idx}",
+                ),
+            )
+            all_videos.append({"topic": topic, "path": video_path})
+            await _update_job(session, job, "rendering_video", "rendering_video", "started",
+                              f"[{idx+1}/{len(topics)}] Done: {Path(video_path).name}")
+        except Exception as e:
+            logger.warning("Batch topic %d (%s) failed: %s", idx + 1, topic, e)
+            await _update_job(session, job, "rendering_video", "rendering_video", "started",
+                              f"[{idx+1}/{len(topics)}] Skipped ({e})")
+
+    if not all_videos:
+        raise RuntimeError("All batch topics failed — no video produced")
+
+    # Store all video paths back into brand_data so the Review page can list them
+    batch_params["video_results"] = all_videos
+    job.brand_data = _json.dumps(batch_params)
+    job.video_path = all_videos[-1]["path"]   # last video for single-video fallback
+    session.add(job)
+    session.commit()
+
+    await _update_job(session, job, "rendering_video", "rendering_video", "completed",
+                      f"Batch complete: {len(all_videos)}/{len(topics)} video(s) generated")
+
+
 # ── Main entry point ──────────────────────────────────────────────────────────
 async def run_pipeline(job_id: int) -> None:
     with Session(engine) as session:
@@ -184,7 +394,17 @@ async def run_pipeline(job_id: int) -> None:
             return
 
         try:
-            if _is_youtube(job.article_url):
+            mode = getattr(job, "mode", "article") or "article"
+            if mode == "batch":
+                logger.info("Job %d: Batch mode — spawning educational sub-jobs", job_id)
+                await _run_batch_pipeline(session, job)
+            elif mode == "brand_ad":
+                logger.info("Job %d: Brand ad mode — brand ad pipeline", job_id)
+                await _run_brand_ad_pipeline(session, job)
+            elif mode == "educational":
+                logger.info("Job %d: Educational mode — educational pipeline", job_id)
+                await _run_educational_pipeline(session, job)
+            elif _is_youtube(job.article_url):
                 logger.info("Job %d: YouTube mode — dubbing pipeline", job_id)
                 await _run_youtube_pipeline(session, job)
             else:

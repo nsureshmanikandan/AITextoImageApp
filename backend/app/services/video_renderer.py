@@ -63,14 +63,29 @@ else:
 
 
 # ── Font helper ───────────────────────────────────────────────────────────────
-def _font(size: int) -> ImageFont.FreeTypeFont | ImageFont.ImageFont:
-    candidates = [
-        "C:/Windows/Fonts/segoeui.ttf",
-        "C:/Windows/Fonts/arial.ttf",
-        "C:/Windows/Fonts/calibri.ttf",
-        "C:/Windows/Fonts/tahoma.ttf",
-    ]
-    for path in candidates:
+_LATIN_FONTS = [
+    "C:/Windows/Fonts/segoeui.ttf",
+    "C:/Windows/Fonts/arial.ttf",
+    "C:/Windows/Fonts/calibri.ttf",
+    "C:/Windows/Fonts/tahoma.ttf",
+]
+# Nirmala UI covers all major Indic scripts: Tamil, Hindi, Telugu, Kannada,
+# Malayalam, Bengali, Gujarati, Punjabi, Odia, Sinhala
+_INDIC_FONTS = [
+    "C:/Windows/Fonts/Nirmala.ttc",
+    "C:/Windows/Fonts/NirmalaUI.ttf",
+]
+_indic_path = next((p for p in _INDIC_FONTS if os.path.exists(p)), None)
+
+
+def _font(size: int, text: str = "") -> ImageFont.FreeTypeFont | ImageFont.ImageFont:
+    # Use Nirmala for any non-ASCII text (all Indic / Arabic / CJK scripts)
+    if text and any(ord(c) > 127 for c in text) and _indic_path:
+        try:
+            return ImageFont.truetype(_indic_path, size)
+        except Exception:
+            pass
+    for path in _LATIN_FONTS:
         if os.path.exists(path):
             try:
                 return ImageFont.truetype(path, size)
@@ -79,36 +94,65 @@ def _font(size: int) -> ImageFont.FreeTypeFont | ImageFont.ImageFont:
     return ImageFont.load_default()
 
 
-# ── Image download ────────────────────────────────────────────────────────────
-async def _download_images(urls: list[str], width: int, height: int) -> list[Image.Image]:
-    """Download and resize article images. Returns list of PIL Images."""
+# ── Image loader (handles both local paths and URLs) ──────────────────────────
+def _fit_image(img: Image.Image, width: int, height: int) -> Image.Image:
+    """Cover-crop then resize to exact (width, height)."""
+    img = img.convert("RGB")
+    if img.width < 200 or img.height < 150:
+        return None  # skip tiny/tracker images
+    img_ratio = img.width / img.height
+    target_ratio = width / height
+    if img_ratio > target_ratio:
+        new_w = int(img.height * target_ratio)
+        left = (img.width - new_w) // 2
+        img = img.crop((left, 0, left + new_w, img.height))
+    else:
+        new_h = int(img.width / target_ratio)
+        top = (img.height - new_h) // 2
+        img = img.crop((0, top, img.width, top + new_h))
+    return img.resize((width, height), Image.LANCZOS)
+
+
+async def _download_images(sources: list[str], width: int, height: int) -> list[Image.Image]:
+    """Load images from local file paths or remote URLs. Returns list of PIL Images."""
     results: list[Image.Image] = []
-    async with httpx.AsyncClient(headers=HEADERS, follow_redirects=True, timeout=15) as client:
-        for url in urls:
+    urls_to_fetch = []
+    url_indices = []
+
+    for i, src in enumerate(sources):
+        if src and Path(src).exists():
+            # Local file from Flux / Pexels
             try:
-                resp = await client.get(url)
-                resp.raise_for_status()
-                img = Image.open(io.BytesIO(resp.content)).convert("RGB")
-                # Skip tiny images (icons, badges, trackers)
-                if img.width < 200 or img.height < 150:
-                    logger.info("Skipping small image %dx%d: %s", img.width, img.height, url[:60])
-                    continue
-                # Cover-fit: crop to target aspect ratio
-                img_ratio = img.width / img.height
-                target_ratio = width / height
-                if img_ratio > target_ratio:
-                    new_w = int(img.height * target_ratio)
-                    left = (img.width - new_w) // 2
-                    img = img.crop((left, 0, left + new_w, img.height))
+                img = Image.open(src)
+                fitted = _fit_image(img, width, height)
+                if fitted:
+                    results.append(fitted)
+                    logger.info("Loaded local image: %s (%dx%d)", Path(src).name, fitted.width, fitted.height)
                 else:
-                    new_h = int(img.width / target_ratio)
-                    top = (img.height - new_h) // 2
-                    img = img.crop((0, top, img.width, top + new_h))
-                img = img.resize((width, height), Image.LANCZOS)
-                results.append(img)
-                logger.info("Downloaded image: %s (%dx%d)", url[:80], img.width, img.height)
+                    logger.info("Skipping small local image: %s", src)
             except Exception as exc:
-                logger.warning("Failed to download image %s: %s", url[:80], exc)
+                logger.warning("Failed to open local image %s: %s", src, exc)
+        elif src and src.startswith("http"):
+            urls_to_fetch.append(src)
+            url_indices.append(i)
+
+    # Fetch remote URLs in one client session
+    if urls_to_fetch:
+        async with httpx.AsyncClient(headers=HEADERS, follow_redirects=True, timeout=15) as client:
+            for url in urls_to_fetch:
+                try:
+                    resp = await client.get(url)
+                    resp.raise_for_status()
+                    img = Image.open(io.BytesIO(resp.content))
+                    fitted = _fit_image(img, width, height)
+                    if fitted:
+                        results.append(fitted)
+                        logger.info("Downloaded image: %s (%dx%d)", url[:80], fitted.width, fitted.height)
+                    else:
+                        logger.info("Skipping small remote image: %s", url[:60])
+                except Exception as exc:
+                    logger.warning("Failed to download image %s: %s", url[:80], exc)
+
     return results
 
 
@@ -139,6 +183,7 @@ def _compose_slide(
     total_slides: int,
     brand: str = "VernacularCast",
     watermark: str = "AI Generated | VernacularCast",
+    show_live_badge: bool = True,
 ) -> Image.Image:
     """Add branded overlay on top of a photo/gradient base."""
     img = base.copy().resize((width, height), Image.LANCZOS)
@@ -163,35 +208,36 @@ def _compose_slide(
     img = Image.alpha_composite(img.convert("RGBA"), overlay).convert("RGB")
     draw = ImageDraw.Draw(img)
 
-    font_brand  = _font(max(28, width // 36))
-    font_title  = _font(max(32, width // 26))
-    font_sub    = _font(max(20, width // 56))
+    font_brand  = _font(max(28, width // 36), text=brand)
+    font_title  = _font(max(32, width // 26), text=title)
+    font_sub    = _font(max(20, width // 56), text=title)
     font_wm     = _font(max(16, width // 72))
 
     # ── Top-left brand bar ────────────────────────────────────────────────────
     pad = int(width * 0.025)
-    dot_r = int(font_brand.size * 0.4)
-    dot_x, dot_y = pad + dot_r, int(height * 0.038)
-    draw.ellipse([dot_x - dot_r, dot_y - dot_r, dot_x + dot_r, dot_y + dot_r],
-                 fill=(0, 120, 212))
-    bx = pad + dot_r * 2 + 8
-    draw.text((bx, dot_y - font_brand.size // 2), brand, font=font_brand, fill=(255, 255, 255))
+    if brand:
+        dot_r = int(font_brand.size * 0.4)
+        dot_x, dot_y = pad + dot_r, int(height * 0.038)
+        draw.ellipse([dot_x - dot_r, dot_y - dot_r, dot_x + dot_r, dot_y + dot_r],
+                     fill=(0, 120, 212))
+        bx = pad + dot_r * 2 + 8
+        draw.text((bx, dot_y - font_brand.size // 2), brand, font=font_brand, fill=(255, 255, 255))
 
-    # ── LIVE badge ────────────────────────────────────────────────────────────
-    live_font = _font(max(14, width // 80))
-    live_text = "LIVE NEWS"
-    lb = draw.textbbox((0, 0), live_text, font=live_font)
-    lw, lh = lb[2] - lb[0], lb[3] - lb[1]
-    lx = width - lw - pad * 2 - 6
-    ly = int(height * 0.025)
-    draw.rounded_rectangle([lx - 8, ly - 4, lx + lw + 8, ly + lh + 4],
-                            radius=4, fill=(220, 30, 30))
-    draw.text((lx, ly), live_text, font=live_font, fill=(255, 255, 255))
+    # ── LIVE badge (news/article only) ───────────────────────────────────────
+    if show_live_badge:
+        live_font = _font(max(14, width // 80))
+        live_text = "LIVE NEWS"
+        lb = draw.textbbox((0, 0), live_text, font=live_font)
+        lw, lh = lb[2] - lb[0], lb[3] - lb[1]
+        lx = width - lw - pad * 2 - 6
+        ly = int(height * 0.025)
+        draw.rounded_rectangle([lx - 8, ly - 4, lx + lw + 8, ly + lh + 4],
+                                radius=4, fill=(220, 30, 30))
+        draw.text((lx, ly), live_text, font=live_font, fill=(255, 255, 255))
 
     # ── Article title (bottom) ────────────────────────────────────────────────
     import textwrap
-    safe_title = title.encode("ascii", errors="ignore").decode("ascii").strip()
-    lines = textwrap.wrap(safe_title or "Regional News", width=max(28, width // 22))[:3]
+    lines = textwrap.wrap(title or "Regional News", width=max(28, width // 22))[:3]
     line_h = int(font_title.size * 1.35)
     total_text_h = len(lines) * line_h
     text_y = height - total_text_h - int(height * 0.10)
@@ -219,11 +265,12 @@ def _compose_slide(
             draw.ellipse([dx - 3, dy - 3, dx + 3, dy + 3], fill=(150, 150, 150))
 
     # ── Source watermark ─────────────────────────────────────────────────────
-    wm_bb = draw.textbbox((0, 0), watermark, font=font_wm)
-    wm_x = width - (wm_bb[2] - wm_bb[0]) - pad
-    wm_y = height - (wm_bb[3] - wm_bb[1]) - int(height * 0.065)
-    draw.text((wm_x + 1, wm_y + 1), watermark, font=font_wm, fill=(0, 0, 0, 150))
-    draw.text((wm_x, wm_y), watermark, font=font_wm, fill=(200, 200, 200))
+    if watermark:
+        wm_bb = draw.textbbox((0, 0), watermark, font=font_wm)
+        wm_x = width - (wm_bb[2] - wm_bb[0]) - pad
+        wm_y = height - (wm_bb[3] - wm_bb[1]) - int(height * 0.065)
+        draw.text((wm_x + 1, wm_y + 1), watermark, font=font_wm, fill=(0, 0, 0, 150))
+        draw.text((wm_x, wm_y), watermark, font=font_wm, fill=(200, 200, 200))
 
     return img
 
@@ -253,6 +300,7 @@ async def render_video(
     media_dir: str,
     title: str = "",
     images: list[str] | None = None,
+    video_mode: str = "article",
 ) -> str:
     width, height = FORMAT_SIZES.get(video_format, (1920, 1080))
     out_dir = Path(media_dir).resolve()
@@ -281,15 +329,24 @@ async def render_video(
         audio_secs = len(audio_bytes) / 6000
         secs_per_slide = max(3.0, audio_secs / n)
 
-        # ── 3. Build Pillow-composed slide PNGs ───────────────────────────────
+        # ── 3. Build slide PNGs ───────────────────────────────────────────────
+        show_live = video_mode in ("article", "youtube")
         slide_paths: list[str] = []
         for i, frame in enumerate(photo_frames):
-            composed = _compose_slide(
-                base=frame,
-                width=width, height=height,
-                title=title or "Regional News",
-                slide_num=i, total_slides=n,
-            )
+            if video_mode == "educational":
+                # Educational frames are already complete Pillow compositions —
+                # skip the news overlay (gradient scrim + title) entirely
+                composed = frame
+            else:
+                composed = _compose_slide(
+                    base=frame,
+                    width=width, height=height,
+                    title=title or "Regional News",
+                    slide_num=i, total_slides=n,
+                    show_live_badge=show_live,
+                    brand="" if video_mode == "brand_ad" else "VernacularCast",
+                    watermark="" if video_mode == "brand_ad" else "AI Generated | VernacularCast",
+                )
             slide_path = os.path.join(tmpdir, f"slide_{i:02d}.png")
             composed.save(slide_path, "PNG")
             slide_paths.append(slide_path)

@@ -3,7 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import {
   CheckCircle2, RefreshCw, Trash2, ExternalLink,
-  FileText, Clock, Languages, Maximize2
+  FileText, Clock, Languages, Maximize2, ChevronLeft, ChevronRight, Download
 } from 'lucide-react'
 import VideoPlayer from '../components/VideoPlayer'
 import Badge from '../components/Badge'
@@ -27,6 +27,7 @@ export default function Review() {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
   const [showRejectConfirm, setShowRejectConfirm] = useState(false)
   const [approved, setApproved] = useState(false)
+  const [batchIdx, setBatchIdx] = useState(0)
 
   // Live WS updates
   useJobProgress(id ?? null)
@@ -97,7 +98,16 @@ export default function Review() {
     )
   }
 
-  const videoSrc = job.video_path ? getVideoUrl(job.video_path) : ''
+  // Batch video results
+  const batchResults: { topic: string; path: string }[] = (() => {
+    if (job.mode !== 'batch') return []
+    try { return JSON.parse(job.brand_data ?? '{}').video_results ?? [] } catch { return [] }
+  })()
+  const isBatch = batchResults.length > 0
+
+  const videoSrc = isBatch
+    ? getVideoUrl(batchResults[batchIdx]?.path ?? '')
+    : job.video_path ? getVideoUrl(job.video_path) : ''
   const isYouTube = /youtube\.com|youtu\.be/i.test(job.article_url ?? '')
   // YouTube dubs are always landscape regardless of format selected
   const playerFormat = isYouTube ? 'landscape_16_9' : job.format
@@ -132,6 +142,61 @@ export default function Review() {
               </div>
             )}
           </div>
+
+          {/* Batch navigation */}
+          {isBatch && (
+            <div className="mt-3 glass-card p-3">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-xs font-semibold text-azure-400">
+                  Batch Videos ({batchResults.length})
+                </span>
+                <span className="text-xs text-slate-500">{batchIdx + 1} / {batchResults.length}</span>
+              </div>
+              <div className="flex gap-2 flex-wrap">
+                {batchResults.map((r, i) => (
+                  <button
+                    key={i}
+                    onClick={() => setBatchIdx(i)}
+                    className={`text-xs px-3 py-1.5 rounded-lg border transition-colors truncate max-w-[220px] ${
+                      i === batchIdx
+                        ? 'bg-azure-600 border-azure-500 text-white'
+                        : 'bg-navy-800/60 border-white/10 text-slate-400 hover:text-white'
+                    }`}
+                    title={r.topic}
+                  >
+                    {r.topic.length > 28 ? r.topic.slice(0, 26) + '…' : r.topic}
+                  </button>
+                ))}
+              </div>
+              <div className="flex items-center gap-2 mt-2">
+                <button
+                  onClick={() => setBatchIdx(prev => Math.max(0, prev - 1))}
+                  disabled={batchIdx === 0}
+                  className="p-1.5 rounded-lg bg-navy-800/60 border border-white/10 text-slate-400 hover:text-white disabled:opacity-30 transition-colors"
+                >
+                  <ChevronLeft className="w-4 h-4" />
+                </button>
+                <span className="text-xs text-slate-400 flex-1 truncate text-center font-medium">
+                  {batchResults[batchIdx]?.topic}
+                </span>
+                <button
+                  onClick={() => setBatchIdx(prev => Math.min(batchResults.length - 1, prev + 1))}
+                  disabled={batchIdx === batchResults.length - 1}
+                  className="p-1.5 rounded-lg bg-navy-800/60 border border-white/10 text-slate-400 hover:text-white disabled:opacity-30 transition-colors"
+                >
+                  <ChevronRight className="w-4 h-4" />
+                </button>
+                <a
+                  href={getVideoUrl(batchResults[batchIdx]?.path ?? '')}
+                  download
+                  className="p-1.5 rounded-lg bg-navy-800/60 border border-white/10 text-slate-400 hover:text-white transition-colors"
+                  title="Download this video"
+                >
+                  <Download className="w-4 h-4" />
+                </a>
+              </div>
+            </div>
+          )}
 
           {/* Meta strip */}
           <div className="flex items-center gap-3 mt-3 flex-wrap">
@@ -181,17 +246,19 @@ export default function Review() {
             </div>
           </div>
 
-          {/* Quality Scores — shown for all YouTube dub jobs */}
-          {isYouTube && (
+          {/* Quality Scores — shown for YouTube dubs and article translations */}
+          {(isYouTube || job.translation_score != null) && (
             <div className="glass-card p-5">
               <div className="flex items-center gap-2 mb-4">
                 <span className="text-azure-400 text-base">⚡</span>
-                <h3 className="text-sm font-semibold text-white">Dub Quality Score</h3>
+                <h3 className="text-sm font-semibold text-white">
+                  {isYouTube ? 'Dub Quality Score' : 'Translation Quality Score'}
+                </h3>
               </div>
               <div className="space-y-4">
 
-                {/* Timing Match */}
-                <div>
+                {/* Timing Match — YouTube only */}
+                {isYouTube && <div>
                   <div className="flex justify-between text-xs mb-1">
                     <span className="text-slate-400">Timing Match</span>
                     <span className={
@@ -210,7 +277,7 @@ export default function Review() {
                     }`} style={{ width: `${job.timing_score ?? 0}%` }} />
                   </div>
                   <p className="text-xs text-slate-600 mt-1">How well dubbed audio length matches original video</p>
-                </div>
+                </div>}
 
                 {/* Translation Quality */}
                 {(() => {
@@ -237,7 +304,9 @@ export default function Review() {
                         }`} style={{ width: `${score && score > 0 ? score : 0}%` }} />
                       </div>
                       <p className="text-xs text-slate-600 mt-1">
-                        {noTranscript
+                        {!isYouTube
+                          ? 'GPT-4o rates how accurately the script translates the article'
+                          : noTranscript
                           ? 'No subtitles found — GPT-4o rated script fluency directly'
                           : 'GPT-4o rates accuracy vs original English transcript'}
                       </p>
@@ -260,8 +329,8 @@ export default function Review() {
                   } catch { return null }
                 })()}
 
-                {/* Original transcript */}
-                {job.original_transcript ? (
+                {/* Original transcript — YouTube only */}
+                {isYouTube && (job.original_transcript ? (
                   <details className="pt-1">
                     <summary className="text-xs text-slate-400 cursor-pointer hover:text-slate-200 select-none font-medium">
                       📄 Original English Transcript
@@ -272,7 +341,7 @@ export default function Review() {
                   </details>
                 ) : (
                   <p className="text-xs text-slate-600 italic pt-1">No transcript available for this job. New jobs will show transcript here.</p>
-                )}
+                ))}
               </div>
             </div>
           )}

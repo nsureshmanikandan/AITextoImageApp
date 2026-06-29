@@ -13,7 +13,7 @@ import asyncio
 import json
 import logging
 from pathlib import Path
-from typing import List
+from typing import List, Optional
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
 from fastapi.responses import FileResponse
@@ -48,6 +48,8 @@ async def create_job(
         language=payload.language,
         format=payload.format,
         status="pending",
+        mode=payload.mode,
+        brand_data=payload.brand_data,
     )
     session.add(job)
     session.commit()
@@ -56,6 +58,70 @@ async def create_job(
     background_tasks.add_task(run_pipeline, job.id)
     logger.info("Created job %d for URL %s", job.id, job.article_url)
     return job
+
+
+@router.get("/trending")
+async def get_trending(category: str = "AI"):
+    from app.services.trending_service import get_trending_suggestions
+    return await get_trending_suggestions(category)
+
+
+@router.get("/suggest-topics")
+async def suggest_topics(mode: str = "educational", category: str = "AI"):
+    """GPT-4o generates fresh topic suggestions every call — never the same list twice."""
+    from app.config import settings
+    from openai import AsyncAzureOpenAI
+    import json, re as _re
+
+    if not settings.azure_openai_key:
+        # fallback static list
+        return {"topics": [
+            {"label": "Agentic Context Engineering", "hot": True},
+            {"label": "MCP Security Patterns", "hot": True},
+            {"label": "LLM Reasoning & Chain-of-Thought", "hot": False},
+            {"label": "RAG vs Fine-tuning", "hot": False},
+            {"label": "AI Agent Memory Systems", "hot": False},
+        ]}
+
+    client = AsyncAzureOpenAI(
+        azure_endpoint=settings.azure_openai_endpoint,
+        api_key=settings.azure_openai_key,
+        api_version=settings.azure_openai_api_version,
+    )
+
+    if mode == "educational":
+        prompt = (
+            f"Today is June 2026. Generate 12 fresh, trending {category} / GenAI topics "
+            f"that developers and professionals urgently want to learn right now. "
+            f"Mix: 3 very hot breaking topics (hot=true), 9 evergreen-but-relevant (hot=false). "
+            f"Topics should be specific and educational — suitable for a 5-min explainer video. "
+            f"Return ONLY JSON array: "
+            f'[{{"label": "Topic Name", "hot": true|false}}]. No duplicates, no markdown.'
+        )
+    else:
+        prompt = (
+            f"Today is June 2026. Generate 12 trending {category} topics for short viral educational videos. "
+            f"Think LinkedIn-style: concise, punchy, professional audience. "
+            f"Mix 3 breaking/hot topics (hot=true) and 9 relevant evergreen ones (hot=false). "
+            f"Return ONLY JSON array: "
+            f'[{{"label": "Topic Name", "hot": true|false}}]. No duplicates, no markdown.'
+        )
+
+    try:
+        resp = await client.chat.completions.create(
+            model=settings.azure_openai_deployment,
+            messages=[{"role": "user", "content": prompt}],
+            temperature=0.9,   # high temperature = fresh/varied every call
+            max_tokens=400,
+        )
+        text = resp.choices[0].message.content.strip()
+        text = _re.sub(r"```json|```", "", text).strip()
+        topics = json.loads(text)
+        return {"topics": topics}
+    except Exception as e:
+        logger.warning("Topic suggestion failed: %s", e)
+        return {"topics": [{"label": "Agentic AI", "hot": True},
+                           {"label": "RAG Pipelines", "hot": False}]}
 
 
 @router.get("", response_model=List[JobRead])

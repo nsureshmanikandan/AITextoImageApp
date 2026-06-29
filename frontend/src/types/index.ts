@@ -31,6 +31,8 @@ export interface Job {
   timing_score?: number
   translation_score?: number
   quality_details?: string
+  mode?: string
+  brand_data?: string
 }
 
 export type Language = 'ta-IN' | 'hi-IN' | 'te-IN' | 'kn-IN' | 'en-IN'
@@ -72,3 +74,35 @@ export const PIPELINE_STEPS = [
   { key: 'rendering_video', label: 'Rendering Video', description: 'Compositing visuals & audio' },
   { key: 'awaiting_review', label: 'Ready for Review', description: 'Video ready — awaiting approval' },
 ]
+
+export type VideoMode = 'article' | 'youtube' | 'brand_ad' | 'educational' | 'batch'
+
+export interface BrandAdParams {
+  brand_name: string
+  product: string
+  target_audience: string
+  key_message: string
+  cta: string
+  tone: 'energetic' | 'trustworthy' | 'emotional' | 'urgent'
+  brand_description?: string
+  ad_reference?: string
+  brand_colors?: string[]
+}
+
+export interface EducationalParams {
+  topic: string
+  level: 'school' | 'college' | 'professional'
+  duration_mins: number
+}
+
+export interface BatchParams {
+  topics: string[]
+  batch_mode: 'educational' | 'article'
+}
+
+export interface TrendingTopic {
+  slug: string
+  label: string
+  category: string
+  hot?: boolean
+}

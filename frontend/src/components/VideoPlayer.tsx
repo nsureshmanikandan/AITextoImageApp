@@ -110,10 +110,6 @@ export default function VideoPlayer({ src, className, format }: VideoPlayerProps
         onClick={togglePlay}
       />
 
-      {/* Watermark */}
-      <div className="absolute top-3 left-3 flex items-center gap-1.5 bg-black/40 backdrop-blur-sm px-2.5 py-1.5 rounded-lg pointer-events-none">
-        <span className="text-white/70 text-xs font-medium">AI Generated · VernacularCast</span>
-      </div>
 
       {/* Controls overlay */}
       <div

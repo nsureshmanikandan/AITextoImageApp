@@ -13,3 +13,7 @@ pydantic-settings
 websockets
 aiofiles
 python-multipart
+
+numpy>=2.0
+imageio>=2.37
+imageio-ffmpeg>=0.6

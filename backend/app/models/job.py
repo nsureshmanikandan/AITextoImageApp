@@ -19,6 +19,8 @@ class Job(SQLModel, table=True):
     timing_score: int | None = Field(default=None)
     translation_score: int | None = Field(default=None)
     quality_details: str | None = Field(default=None)
+    mode: str = Field(default="article")        # article | youtube | brand_ad | educational | batch
+    brand_data: str | None = Field(default=None)  # JSON: brand/edu params
 
     def append_step(self, step: str, status: str, message: str) -> None:
         steps = json.loads(self.steps_json)
@@ -38,6 +40,8 @@ class JobCreate(SQLModel):
     article_url: str
     language: str = "en-IN"
     format: str = "landscape_16_9"
+    mode: str = "article"
+    brand_data: Optional[str] = None
 
 
 class JobRead(SQLModel):
@@ -55,3 +59,5 @@ class JobRead(SQLModel):
     timing_score: Optional[int] = None
     translation_score: Optional[int] = None
     quality_details: Optional[str] = None
+    mode: str = "article"
+    brand_data: Optional[str] = None

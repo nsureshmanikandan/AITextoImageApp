@@ -26,6 +26,9 @@ class _Settings:
     flux_api_url: str               = _env.get("FLUX_API_URL", "")
     flux_api_key: str               = _env.get("FLUX_API_KEY", "")
 
+    # Pexels stock images (fallback when Flux is unavailable / article has no images)
+    pexels_api_key: str             = _env.get("PEXELS_API_KEY", "")
+
     # Storage
     storage_backend: str            = _env.get("STORAGE_BACKEND", "local")
     local_media_dir: str            = _env.get("LOCAL_MEDIA_DIR", "./media")

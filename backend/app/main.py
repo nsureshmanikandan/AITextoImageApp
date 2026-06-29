@@ -49,10 +49,26 @@ def _recover_stuck_jobs() -> None:
             logger.info("Recovered %d stuck job(s)", len(jobs))
 
 
+def _run_db_migrations() -> None:
+    """Apply incremental ALTER TABLE migrations for columns added after initial schema."""
+    from app.database import engine as _engine
+    with _engine.connect() as conn:
+        for stmt in (
+            "ALTER TABLE job ADD COLUMN mode TEXT NOT NULL DEFAULT 'article'",
+            "ALTER TABLE job ADD COLUMN brand_data TEXT",
+        ):
+            try:
+                conn.execute(__import__("sqlalchemy").text(stmt))
+                conn.commit()
+            except Exception:
+                pass  # column already exists
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     logger.info("VernacularCast API starting up — creating DB tables")
     create_db_and_tables()
+    _run_db_migrations()
     _recover_stuck_jobs()
     yield
     logger.info("VernacularCast API shutting down")

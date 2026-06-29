@@ -10,22 +10,50 @@ from openai import AsyncAzureOpenAI
 logger = logging.getLogger(__name__)
 
 TECH_TERMS = [
-    "LLM", "RAG", "API", "GPT", "GPT-4", "GPT-4o", "AI", "ML", "NLP",
-    "BERT", "Transformer", "ChatGPT", "OpenAI", "Google", "YouTube", "GitHub",
-    "LinkedIn", "Twitter", "Instagram", "Facebook", "WhatsApp", "Netflix",
-    "Amazon", "Microsoft", "Apple", "Android", "iOS", "URL", "HTTP", "HTTPS",
-    "JSON", "REST", "GraphQL", "Docker", "Kubernetes", "AWS", "Azure", "GCP",
-    "llms.txt", "HTML", "CSS", "JavaScript", "Python", "React", "FastAPI",
-    "WebSocket", "OAuth", "JWT", "SQL", "NoSQL", "Redis", "MongoDB",
+    # AI / ML concepts
+    "LLM", "LLMs", "RAG", "CRAG", "RAFT", "API", "APIs",
+    "GPT", "GPT-4", "GPT-4o", "GPT-3.5", "AI", "ML", "NLP", "CV",
+    "BERT", "Transformer", "Transformers", "Embedding", "Embeddings",
+    "Vector", "Vectors", "KV Cache", "LoRA", "RLHF", "RLVR", "SFT",
+    "MoE", "MLA", "GQA", "RoPE", "Flash Attention",
+    "Prompt", "Prompting", "Fine-tuning", "Inference", "Retrieval",
+    "Agentic", "Agent", "Agents", "Multi-agent", "Workflow",
+    # Models & providers
+    "ChatGPT", "Claude", "Gemini", "Llama", "Mistral", "Qwen", "DeepSeek",
+    "Grok", "Phi", "Falcon", "Command R", "Cohere", "Anthropic",
+    "OpenAI", "Google", "Meta", "xAI", "Stability AI", "ElevenLabs",
+    # Frameworks & tools
+    "LangChain", "LangGraph", "LangSmith", "LlamaIndex", "DSPy",
+    "CrewAI", "AutoGen", "AG2", "Mastra", "Strands", "Flowise",
+    "FastAPI", "React", "Next.js", "Node.js", "Vite", "TypeScript",
+    "Python", "JavaScript", "Rust", "Go", "Java", "Spring AI",
+    "Pinecone", "Weaviate", "Chroma", "Qdrant", "Milvus", "FAISS",
+    "Redis", "MongoDB", "PostgreSQL", "SQLite", "Supabase",
+    "Docker", "Kubernetes", "AWS", "Azure", "GCP", "Bedrock", "Vertex AI",
+    "Ollama", "vLLM", "TGI", "Triton", "CUDA",
+    "Pydantic", "Instructor", "Haystack", "Ragas", "DeepEval",
+    "LiveKit", "Pipecat", "Deepgram", "AssemblyAI", "Whisper",
+    "n8n", "Prefect", "Airflow", "Trigger.dev",
+    "LiteLLM", "OpenRouter", "Langfuse", "Arize", "Phoenix",
+    "MCP", "A2A", "BAML", "AGENTMD",
+    # Tech infrastructure
+    "GitHub", "GitLab", "VS Code", "Cursor", "Windsurf", "Cline",
+    "YouTube", "LinkedIn", "Twitter", "Instagram", "Facebook", "WhatsApp",
+    "Netflix", "Amazon", "Microsoft", "Apple", "NVIDIA", "Intel", "AMD",
+    "Android", "iOS", "URL", "HTTP", "HTTPS", "WebSocket", "OAuth", "JWT",
+    "JSON", "REST", "GraphQL", "HTML", "CSS", "SQL", "NoSQL",
     "VernacularCast", "Wikipedia",
 ]
 
 def _tech_terms_instruction() -> str:
     terms = ", ".join(TECH_TERMS)
     return (
-        f"CRITICAL: Keep these technical terms and brand names EXACTLY in English "
-        f"(do NOT transliterate or translate them): {terms}. "
-        f"These must appear as-is in the output so they are pronounced correctly."
+        f"CRITICAL — Technology terms rule: Keep ALL technical terms, framework names, model names, "
+        f"and brand names EXACTLY in English spelling — do NOT transliterate or translate them into "
+        f"the target language script. These must appear as Latin/English text in the output: {terms}. "
+        f"Write them as-is inline within the translated sentence. "
+        f"CRITICAL — Number suffix rule: Do NOT use a hyphen between numbers and language suffixes. "
+        f"Write '2024ல்' NOT '2024-ல்', '5கி' NOT '5-கி'. This applies to ALL Indian languages."
     )
 
 LANGUAGE_NAMES = {

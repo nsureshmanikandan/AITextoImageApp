@@ -197,15 +197,17 @@ export default function History() {
                               <Download className="w-3.5 h-3.5" />
                             </button>
                           )}
-                          <a
-                            href={job.article_url}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            title="Open source"
-                            className="w-7 h-7 rounded-lg bg-navy-800/80 border border-white/10 flex items-center justify-center text-slate-400 hover:text-white transition-colors"
-                          >
-                            <ExternalLink className="w-3.5 h-3.5" />
-                          </a>
+                          {/^https?:\/\//i.test(job.article_url) && (
+                            <a
+                              href={job.article_url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              title="Open source"
+                              className="w-7 h-7 rounded-lg bg-navy-800/80 border border-white/10 flex items-center justify-center text-slate-400 hover:text-white transition-colors"
+                            >
+                              <ExternalLink className="w-3.5 h-3.5" />
+                            </a>
+                          )}
                           <button
                             onClick={() => setDeleteTarget(job.id)}
                             title="Delete"
