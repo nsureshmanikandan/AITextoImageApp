@@ -304,6 +304,8 @@ def get_brand_banner(job_id: int, session: Session = Depends(get_session)):
     primary   = colors[0] if len(colors) > 0 else "#6d28d9"
     secondary = colors[1] if len(colors) > 1 else "#ffffff"
     brand_name = bd.get("brand_name", job.article_url.split("/")[-1][:30])
+    logo_base64 = bd.get("logo_base64", "")
+    logo_html = f'<img src="data:image/png;base64,{logo_base64}" class="logo" alt="logo">' if logo_base64 else f'<div class="logo-text">{brand_name[:12]}</div>'
 
     # Build per-frame data
     frames_html = ""
@@ -321,6 +323,7 @@ def get_brand_banner(job_id: int, session: Session = Depends(get_session)):
   <div class="frame" style="animation-delay:{delay}s">
     {img_tag}
     <div class="overlay">
+      <div class="logo-wrap">{logo_html}</div>
       <div class="angle-tag">{v.get("angle_name","")}</div>
       <h2 class="headline">{v.get("headline","")}</h2>
       <p class="subline">{v.get("subline","")}</p>
@@ -346,6 +349,9 @@ def get_brand_banner(job_id: int, session: Session = Depends(get_session)):
   .headline{{font-size:22px;font-weight:800;color:#fff;line-height:1.2;margin-bottom:8px;text-shadow:0 2px 8px rgba(0,0,0,.5)}}
   .subline{{font-size:13px;color:rgba(255,255,255,.82);line-height:1.45;margin-bottom:18px}}
   .cta-btn{{display:inline-block;background:{primary};color:{secondary};font-size:13px;font-weight:700;padding:11px 22px;border-radius:8px;text-decoration:none;letter-spacing:.03em;width:100%;text-align:center;box-shadow:0 4px 16px {primary}66}}
+  .logo-wrap{{margin-bottom:auto;padding-bottom:8px}}
+  .logo{{height:32px;width:auto;max-width:80px;object-fit:contain;filter:drop-shadow(0 1px 4px rgba(0,0,0,.5))}}
+  .logo-text{{font-size:11px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:#fff;background:rgba(255,255,255,.15);border:1px solid rgba(255,255,255,.3);border-radius:6px;padding:4px 8px;backdrop-filter:blur(4px)}}
 </style>
 </head>
 <body>
