@@ -2,6 +2,7 @@ from typing import Optional
 from datetime import datetime
 import json
 from sqlmodel import SQLModel, Field
+from pydantic import model_validator
 
 
 class Job(SQLModel, table=True):
@@ -48,6 +49,7 @@ class JobRead(SQLModel):
     id: int
     status: str
     steps_json: str
+    steps: list = []
     error: Optional[str]
     created_at: datetime
     article_url: str
@@ -61,3 +63,8 @@ class JobRead(SQLModel):
     quality_details: Optional[str] = None
     mode: str = "article"
     brand_data: Optional[str] = None
+
+    @model_validator(mode='after')
+    def populate_steps(self) -> 'JobRead':
+        self.steps = json.loads(self.steps_json or '[]')
+        return self
