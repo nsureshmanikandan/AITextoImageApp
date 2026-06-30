@@ -509,6 +509,98 @@ export default function Review() {
             </div>
           )}
 
+          {/* Ad Copy Suggestions — brand ads only */}
+          {job.mode === 'brand_ad' && (
+            <div className="glass-card p-5">
+              <div className="flex items-center gap-2 mb-4">
+                <Wand2 className="w-4 h-4 text-purple-400" />
+                <h3 className="text-sm font-semibold text-white">Ad Copy Suggestions</h3>
+              </div>
+
+              {/* Tone picker */}
+              <div className="flex gap-2 flex-wrap mb-3">
+                {(['emotional', 'bold', 'professional', 'luxury'] as const).map((t) => (
+                  <button
+                    key={t}
+                    onClick={() => setAdCopyTone(t)}
+                    className={`text-xs px-3 py-1 rounded-full border capitalize transition-colors ${
+                      adCopyTone === t
+                        ? 'bg-purple-600 border-purple-500 text-white'
+                        : 'bg-navy-800/60 border-white/10 text-slate-400 hover:text-white'
+                    }`}
+                  >
+                    {t}
+                  </button>
+                ))}
+              </div>
+
+              {/* Generate button */}
+              <button
+                disabled={adCopyLoading}
+                onClick={async () => {
+                  setAdCopyLoading(true)
+                  setAdCopyVariants([])
+                  setSelectedAdIdx(null)
+                  try {
+                    const result = await generateAdCopy(id!, adCopyTone)
+                    setAdCopyVariants(result.variants)
+                  } catch { /* silent */ }
+                  finally { setAdCopyLoading(false) }
+                }}
+                className="w-full text-xs px-3 py-2 rounded-lg bg-purple-600/80 hover:bg-purple-500 text-white transition-colors disabled:opacity-50 flex items-center justify-center gap-2 mb-3"
+              >
+                {adCopyLoading ? (
+                  <>
+                    <div className="w-3 h-3 border border-white border-t-transparent rounded-full animate-spin" />
+                    Generating…
+                  </>
+                ) : 'Generate Copy'}
+              </button>
+
+              {/* Variant cards */}
+              {adCopyVariants.length > 0 && (
+                <div className="flex flex-col gap-2">
+                  {adCopyVariants.map((v, i) => (
+                    <div
+                      key={i}
+                      onClick={() => setSelectedAdIdx(i)}
+                      className={`p-3 rounded-lg border cursor-pointer transition-colors ${
+                        selectedAdIdx === i
+                          ? 'border-purple-500 bg-purple-500/10'
+                          : 'border-white/10 bg-white/5 hover:border-purple-500/40'
+                      }`}
+                    >
+                      <p className="text-xs font-bold text-white mb-0.5">{v.headline}</p>
+                      <p className="text-xs text-slate-400 mb-1.5">{v.subline}</p>
+                      <span className="text-xs px-2 py-0.5 rounded-full bg-purple-600/40 text-purple-300">
+                        {v.cta}
+                      </span>
+                    </div>
+                  ))}
+
+                  {/* Save selection */}
+                  {selectedAdIdx !== null && (
+                    <button
+                      onClick={async () => {
+                        const v = adCopyVariants[selectedAdIdx]
+                        try {
+                          const updated = await selectAdCopy(id!, v, adCopyTone)
+                          updateJob(updated)
+                          setAdCopySaved(true)
+                          setTimeout(() => setAdCopySaved(false), 2000)
+                        } catch { /* silent */ }
+                      }}
+                      className="text-xs px-3 py-1.5 rounded-lg bg-emerald-600/80 hover:bg-emerald-500 text-white transition-colors flex items-center justify-center gap-1.5"
+                    >
+                      <Check className="w-3 h-3" />
+                      {adCopySaved ? 'Saved!' : 'Use this copy'}
+                    </button>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
+
           {/* Flux-2 Brand Ad MP4 — below script */}
           {job.mode === 'brand_ad' && videoSrc && (
             <div className="glass-card overflow-hidden">
