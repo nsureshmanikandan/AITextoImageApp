@@ -1,5 +1,5 @@
 import { motion, AnimatePresence } from 'framer-motion'
-import { Check, AlertCircle, Mic, FileText, Video, Search, Eye, Wand2, Image } from 'lucide-react'
+import { Check, AlertCircle, Mic, FileText, Video, Search, Eye, Wand2, Image, Clapperboard } from 'lucide-react'
 import { cn } from '../lib/utils'
 import type { JobStep } from '../types'
 import { PIPELINE_STEPS } from '../types'
@@ -19,6 +19,7 @@ const STEP_ICONS: Record<string, React.FC<{ className?: string }>> = {
   awaiting_review:    ({ className }) => <Eye      className={className} />,
   sora_prompt:        ({ className }) => <Wand2    className={className} />,
   brand_images:       ({ className }) => <Image    className={className} />,
+  sora_intro:         ({ className }) => <Clapperboard className={className} />,
 }
 
 export default function ProgressStepper({ steps, currentStatus, pipelineSteps }: ProgressStepperProps) {
