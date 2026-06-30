@@ -446,6 +446,15 @@ async def _run_batch_pipeline(session: Session, job: Job) -> None:
                     job_id=f"{job.id}_t{_idx}",
                 ),
             )
+            if batch_params.get("sora_intro"):
+                await _update_job(session, job, "sora_intro", "sora_intro", "started",
+                                  f"[{idx+1}/{len(topics)}] Cinematic intro for: {topic}")
+                from app.services.educational_intro import maybe_add_intro
+                titles = [c.get("title", "") for c in chapters]
+                video_path = await maybe_add_intro(topic, titles, video_path,
+                                                   f"{job.id}_t{idx}", settings.local_media_dir)
+                await _update_job(session, job, "sora_intro", "sora_intro", "completed",
+                                  f"[{idx+1}/{len(topics)}] Intro done")
             all_videos.append({"topic": topic, "path": video_path})
             await _update_job(session, job, "rendering_video", "rendering_video", "started",
                               f"[{idx+1}/{len(topics)}] Done: {Path(video_path).name}")
