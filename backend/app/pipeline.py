@@ -314,6 +314,28 @@ async def _run_brand_ad_pipeline(session: Session, job: Job) -> None:
     except Exception as se:
         logger.warning("Sora-2 prompt generation failed (non-fatal): %s", se)
 
+    # ── Brand composition images (Flux-2, non-fatal) ───────────────────────────
+    try:
+        from app.services.flux_service import generate_brand_composition_images
+        await _update_job(session, job, "brand_images", "brand_images", "started",
+                          "Generating 3 brand composition images")
+        brand_images = await generate_brand_composition_images(
+            brand_name=job.article_url,
+            product=brand_params.get("product", ""),
+            key_message=brand_params.get("key_message", ""),
+            cta=brand_params.get("cta", ""),
+            script=job.script or "",
+            job_id=job.id,
+            media_dir=settings.local_media_dir,
+        )
+        brand_params["brand_images"] = brand_images
+        job.brand_data = _json.dumps(brand_params)
+        session.add(job); session.commit()
+        await _update_job(session, job, "brand_images", "brand_images", "completed",
+                          f"{len([i for i in brand_images if i['path']])} brand images ready")
+    except Exception as bi_err:
+        logger.warning("Brand composition images failed (non-fatal): %s", bi_err)
+
 
 async def _poll_sora_video(job_id: int, videostoreid: str) -> None:
     """Background task: poll Sora until video is ready, save to disk, update job."""
