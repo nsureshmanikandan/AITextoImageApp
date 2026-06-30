@@ -24,6 +24,7 @@ export default function EducationalForm({ onSubmit, loading }: Props) {
   const [level, setLevel]       = useState<EducationalParams['level']>('professional')
   const [duration, setDuration] = useState(5)
   const [category, setCategory] = useState('AI')
+  const [soraIntro, setSoraIntro] = useState(false)
 
   const [suggestions, setSuggestions] = useState<Suggestion[]>([])
   const [suggesting, setSuggesting]   = useState(false)
@@ -45,7 +46,7 @@ export default function EducationalForm({ onSubmit, loading }: Props) {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
     if (!topic.trim()) return
-    onSubmit({ topic: topic.trim(), level, duration_mins: duration })
+    onSubmit({ topic: topic.trim(), level, duration_mins: duration, sora_intro: soraIntro })
   }
 
   return (
@@ -175,6 +176,22 @@ export default function EducationalForm({ onSubmit, loading }: Props) {
             ))}
           </div>
         </div>
+
+        {/* ── Cinematic Sora intro toggle ── */}
+        <label className="flex items-start gap-3 p-3 rounded-lg border-2 border-slate-700 hover:border-slate-500 cursor-pointer transition-all">
+          <input
+            type="checkbox"
+            checked={soraIntro}
+            onChange={e => setSoraIntro(e.target.checked)}
+            className="mt-1 accent-emerald-500 w-4 h-4"
+          />
+          <span>
+            <span className="block text-sm font-semibold text-white">Add cinematic Sora intro</span>
+            <span className="block text-xs text-slate-400">
+              A 12s AI-generated cinematic opener with title &amp; topic agenda. Adds ~3–5 min.
+            </span>
+          </span>
+        </label>
 
         <button
           type="submit"
