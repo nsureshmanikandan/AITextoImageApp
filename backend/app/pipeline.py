@@ -314,27 +314,28 @@ async def _run_brand_ad_pipeline(session: Session, job: Job) -> None:
     except Exception as se:
         logger.warning("Sora-2 prompt generation failed (non-fatal): %s", se)
 
-    # ── Brand composition images (Flux-2, non-fatal) ───────────────────────────
+    # ── Ad variations — 3 unique creative angles (Flux-2, non-fatal) ───────────
     try:
-        from app.services.flux_service import generate_brand_composition_images
+        from app.services.flux_service import generate_ad_variations
         await _update_job(session, job, "brand_images", "brand_images", "started",
-                          "Generating 3 brand composition images")
-        brand_images = await generate_brand_composition_images(
+                          "Generating 3 unique ad variation images")
+        ad_variations = await generate_ad_variations(
             brand_name=job.article_url,
             product=brand_params.get("product", ""),
             key_message=brand_params.get("key_message", ""),
             cta=brand_params.get("cta", ""),
+            tone=brand_params.get("tone", "emotional"),
             script=job.script or "",
             job_id=job.id,
             media_dir=settings.local_media_dir,
         )
-        brand_params["brand_images"] = brand_images
+        brand_params["ad_variations"] = ad_variations
         job.brand_data = _json.dumps(brand_params)
         session.add(job); session.commit()
         await _update_job(session, job, "brand_images", "brand_images", "completed",
-                          f"{len([i for i in brand_images if i['path']])} brand images ready")
+                          f"{len([v for v in ad_variations if v['image_path']])} ad variations ready")
     except Exception as bi_err:
-        logger.warning("Brand composition images failed (non-fatal): %s", bi_err)
+        logger.warning("Ad variations failed (non-fatal): %s", bi_err)
 
 
 async def _poll_sora_video(job_id: int, videostoreid: str) -> None:
