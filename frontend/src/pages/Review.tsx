@@ -491,9 +491,9 @@ export default function Review() {
         </div>
 
         {/* Right panel (40%) */}
-        <div className="lg:col-span-2 flex flex-col gap-4">
+        <div className="lg:col-span-2 flex flex-col gap-4 lg:self-start">
           {/* Script */}
-          <div className="glass-card p-5 flex-1 flex flex-col">
+          <div className="glass-card p-5 flex flex-col">
             <div className="flex items-center gap-2 mb-4">
               <FileText className="w-4 h-4 text-azure-400" />
               <h3 className="text-sm font-semibold text-white">Generated Script</h3>
