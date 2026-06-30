@@ -29,12 +29,14 @@ def build_intro_prompt(topic: str) -> str:
         f"A 12-second cinematic educational intro about {topic}. "
         "Seconds 0-3: slow push-in on a focused student at a laptop in a warm, softly "
         f"lit study, curiosity on their face; gentle uplifting music; a calm narrator "
-        f"says: 'Welcome to {topic}.' "
+        f"says ONCE: 'Welcome to {topic}.' "
         "Seconds 4-8: dissolve to an elegant glowing abstract visualization representing "
-        f"the topic, blue and teal light, particles connecting; narrator: 'Let's explore "
-        f"{topic} together.' "
+        "the topic, blue and teal light, particles connecting; no voiceover in this "
+        "segment, music builds gently. "
         "Seconds 9-12: pull back to the student smiling with understanding, bright clean "
-        "frame, music resolves. Inspiring, premium, cinematic color grading, shallow depth "
+        "frame, music resolves; no further narration. "
+        "IMPORTANT: the narrator speaks only ONE short line total, at the start. Do not "
+        "repeat the topic name. Inspiring, premium, cinematic color grading, shallow depth "
         "of field. No on-screen text. Landscape 16:9."
     )
 
@@ -65,20 +67,39 @@ def _drawtext(textfile: str, font: str, size: int, y_expr: str,
     )
 
 
+def _fit_fontsize(text: str, font_path: str, base: int,
+                  max_px: int = 1720, min_size: int = 34) -> int:
+    """Largest font size (<= base) at which `text` fits within max_px, measured
+    with PIL. Falls back to base if the font can't be loaded."""
+    if not text:
+        return base
+    try:
+        from PIL import ImageFont
+        for size in range(base, min_size - 1, -2):
+            if ImageFont.truetype(font_path, size).getlength(text) <= max_px:
+                return size
+        return min_size
+    except Exception:
+        return base
+
+
 def _overlay_title(raw_intro_path: str, title: str, agenda_lines: list[str],
                    out_path: str) -> str:
-    """Scale the raw Sora clip to 1920x1080 and overlay title + agenda lines."""
+    """Scale the raw Sora clip to 1920x1080 and overlay title + agenda lines.
+    Font sizes auto-shrink so long titles/agendas never overflow the frame."""
     tmp = Path(tempfile.mkdtemp(prefix="eduintro_"))
     title_file = tmp / "title.txt"
     title_file.write_text(title, encoding="utf-8")
 
     filters = ["scale=1920:1080"]
-    filters.append(_drawtext(str(title_file), _FONT_BLD, 88, "h*0.34", 1.0))
+    title_size = _fit_fontsize(title, _FONT_BLD, 88)
+    filters.append(_drawtext(str(title_file), _FONT_BLD, title_size, "h*0.34", 1.0))
     for i, line in enumerate(agenda_lines[:2]):
         line_file = tmp / f"agenda_{i}.txt"
         line_file.write_text(line, encoding="utf-8")
         y = f"h*0.34+{130 + i * 55}"
-        filters.append(_drawtext(str(line_file), _FONT_REG, 38, y, 1.5 + i * 0.5))
+        line_size = _fit_fontsize(line, _FONT_REG, 38)
+        filters.append(_drawtext(str(line_file), _FONT_REG, line_size, y, 1.5 + i * 0.5))
 
     vf = ",".join(filters)
     subprocess.run(
