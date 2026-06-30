@@ -32,3 +32,20 @@ def test_build_intro_prompt_mentions_topic_and_bans_text():
     assert "RAG Learning for Beginners" in p
     assert "No on-screen text" in p
     assert "16:9" in p
+
+
+def test_build_agenda_lines_splits_into_two_lines():
+    from app.services.educational_intro import build_agenda_lines
+    titles = ["What is RAG?", "Why RAG Matters", "Architecture", "Code Example",
+              "Tools & Ecosystem", "Learning Path"]
+    lines = build_agenda_lines(titles, max_lines=2)
+    assert len(lines) == 2
+    assert "What is RAG?" in lines[0]
+    assert "Learning Path" in lines[1]
+    assert "  •  " in lines[0]   # bullet separator
+
+
+def test_build_agenda_lines_empty():
+    from app.services.educational_intro import build_agenda_lines
+    assert build_agenda_lines([]) == []
+    assert build_agenda_lines(["", "   "]) == []

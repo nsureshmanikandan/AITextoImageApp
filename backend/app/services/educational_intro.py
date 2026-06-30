@@ -37,3 +37,15 @@ def build_intro_prompt(topic: str) -> str:
         "frame, music resolves. Inspiring, premium, cinematic color grading, shallow depth "
         "of field. No on-screen text. Landscape 16:9."
     )
+
+
+def build_agenda_lines(chapter_titles: list[str], max_lines: int = 2) -> list[str]:
+    """Join chapter titles with bullets, split across up to max_lines lines."""
+    items = [t.strip() for t in chapter_titles if t and t.strip()]
+    if not items:
+        return []
+    per = -(-len(items) // max_lines)   # ceil division
+    lines: list[str] = []
+    for i in range(0, len(items), per):
+        lines.append("  •  ".join(items[i:i + per]))
+    return lines[:max_lines]
