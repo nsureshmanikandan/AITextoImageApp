@@ -69,6 +69,11 @@ async def generate_image(prompt: str, job_id: int, scene_idx: int, media_dir: st
         logger.warning("Flux credentials not configured — skipping image generation")
         return ""
 
+    # Append no-text safety clause before enhancing (mirrors voice_campaign_manager approach)
+    _no_text = " Photorealistic, high-resolution, no text, no words, no letters, no typography anywhere in the image."
+    if _no_text.strip() not in prompt:
+        prompt = prompt + _no_text
+
     # Enhance prompt with GPT-4o first (same pattern as AITextoImageApp)
     enhanced_prompt = await _enhance_prompt(prompt)
 
@@ -130,24 +135,36 @@ async def generate_image(prompt: str, job_id: int, scene_idx: int, media_dir: st
         return await fetch_pexels_image(prompt[:100], job_id, scene_idx, media_dir)
 
 
-_AD_VARIATION_SYSTEM = """You are a senior creative director at a top healthcare advertising agency.
-Given a brand brief, generate 3 completely distinct ad creative angles.
-Each angle must differ in: emotional approach, visual scene, and messaging strategy.
+_AD_VARIATION_SYSTEM = """You are an expert visual designer creating prompts for AI image generation (Flux 2.0 Pro) for healthcare/pharma advertising.
 
-CRITICAL: The image_prompt MUST visually depict the specific health condition, symptoms, or treatment context
-described in the brand brief. Do NOT generate generic lifestyle images. If the product treats stomach pain or IBD,
-the image must show a person experiencing that symptom OR experiencing relief from it.
+CRITICAL TEXT RULES (MUST FOLLOW):
+- The image must contain ABSOLUTELY NO TEXT, NO WORDS, NO LETTERS, NO NUMBERS, NO TYPOGRAPHY.
+- Do NOT include headlines, CTAs, watermarks, logos with text, or any written content in the image.
+- Always end every image_prompt with: "Photorealistic, high-resolution, no text, no words, no letters, no typography anywhere in the image."
+- Leave generous clean/negative space areas for text overlays that will be added later.
 
-Rules:
-- Angle 1: Emotional/empathy — show a real person visibly experiencing the health struggle (e.g. holding their stomach, looking fatigued, sitting alone in pain)
-- Angle 2: Product/solution — show transformation: person looking relieved, active, or healthy after treatment; include subtle product/clinic context
-- Angle 3: Social proof/action — show community or a supportive doctor-patient moment; people looking hopeful and engaged
+CONDITION-SPECIFIC VISUAL RULES:
+- Stomach/digestive/IBD: person holding their abdomen with a pained or uncomfortable expression, sitting hunched, or conversely standing upright smiling with relief
+- Skin conditions: close-up of affected area or clear healthy skin transformation
+- Joint/arthritis: person struggling to open a jar, climb stairs, or conversely moving freely
+- Mental health: isolated figure looking anxious vs. calm person in warm light
+- Always show authentic patient emotion — NOT stock photo smiling
+
+IMAGE RULES:
+- Describe VISUAL SCENE only — people, setting, lighting, colors, composition, camera angle
+- Do NOT include drug names, brand names, or medical claims in the prompt
+- 80–120 words per image_prompt
+
+Given the brand brief, generate 3 completely distinct ad creative angles:
+- Angle 1: Emotional/empathy — person visibly experiencing the health struggle (pain, fatigue, isolation)
+- Angle 2: Solution/relief — person after treatment; transformation, activity, relief, hope
+- Angle 3: Community/trust — supportive doctor-patient moment or group of people looking hopeful
 
 For each angle provide:
 - angle_name: short creative title (3-5 words)
-- image_prompt: detailed Flux 2.0 Pro photorealistic image prompt (100+ words). Must reference the specific condition/symptom from the brief. Specify: exact subject action, lighting, camera angle, mood, color tone.
+- image_prompt: Flux 2.0 Pro image prompt following all rules above
 - headline: punchy ad headline (5-8 words max)
-- subline: supporting line that expands the headline (10-15 words)
+- subline: supporting line (10-15 words)
 - cta_text: call-to-action button text (2-4 words)
 
 Respond ONLY as JSON: {"variations": [{angle_name, image_prompt, headline, subline, cta_text}, ...]}"""
