@@ -1,5 +1,5 @@
 import { motion, AnimatePresence } from 'framer-motion'
-import { Check, AlertCircle, Mic, FileText, Video, Search, Eye } from 'lucide-react'
+import { Check, AlertCircle, Mic, FileText, Video, Search, Eye, Wand2, Image } from 'lucide-react'
 import { cn } from '../lib/utils'
 import type { JobStep } from '../types'
 import { PIPELINE_STEPS } from '../types'
@@ -8,6 +8,7 @@ import { deriveStepsFromStatus } from '../hooks/useJobProgress'
 interface ProgressStepperProps {
   steps: JobStep[]
   currentStatus?: string
+  pipelineSteps?: typeof PIPELINE_STEPS
 }
 
 const STEP_ICONS: Record<string, React.FC<{ className?: string }>> = {
@@ -16,9 +17,12 @@ const STEP_ICONS: Record<string, React.FC<{ className?: string }>> = {
   generating_voice:   ({ className }) => <Mic      className={className} />,
   rendering_video:    ({ className }) => <Video    className={className} />,
   awaiting_review:    ({ className }) => <Eye      className={className} />,
+  sora_prompt:        ({ className }) => <Wand2    className={className} />,
+  brand_images:       ({ className }) => <Image    className={className} />,
 }
 
-export default function ProgressStepper({ steps, currentStatus }: ProgressStepperProps) {
+export default function ProgressStepper({ steps, currentStatus, pipelineSteps }: ProgressStepperProps) {
+  const activeSteps = pipelineSteps ?? PIPELINE_STEPS
   // If WS hasn't sent steps yet, derive them from job status
   const effectiveSteps: JobStep[] =
     steps.length > 0 ? steps : (currentStatus ? deriveStepsFromStatus(currentStatus) : [])
@@ -28,10 +32,10 @@ export default function ProgressStepper({ steps, currentStatus }: ProgressSteppe
 
   return (
     <div className="flex flex-col gap-0 w-full">
-      {PIPELINE_STEPS.map((pipeStep, index) => {
+      {activeSteps.map((pipeStep, index) => {
         const stepData  = getStepData(pipeStep.key)
         const status    = stepData.status
-        const isLast    = index === PIPELINE_STEPS.length - 1
+        const isLast    = index === activeSteps.length - 1
         const StepIcon  = STEP_ICONS[pipeStep.key]
 
         return (

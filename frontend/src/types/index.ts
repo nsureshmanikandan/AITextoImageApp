@@ -75,6 +75,13 @@ export const PIPELINE_STEPS = [
   { key: 'awaiting_review', label: 'Ready for Review', description: 'Video ready — awaiting approval' },
 ]
 
+export const BRAND_AD_PIPELINE_STEPS = [
+  { key: 'generating_script', label: 'Generating Script', description: 'GPT-4o writing brand ad script' },
+  { key: 'sora_prompt', label: 'Sora-2 Prompt', description: 'Building cinematic video prompt' },
+  { key: 'brand_images', label: 'Ad Variation Images', description: 'Flux-2 generating 3 unique ad images' },
+  { key: 'awaiting_review', label: 'Ready for Review', description: 'Banner & Sora video ready' },
+]
+
 export type VideoMode = 'article' | 'youtube' | 'brand_ad' | 'educational' | 'batch'
 
 export interface BrandAdParams {

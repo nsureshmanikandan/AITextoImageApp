@@ -216,7 +216,6 @@ async def _run_brand_ad_pipeline(session: Session, job: Job) -> None:
     import json as _json
     out_dir = Path(settings.local_media_dir).resolve()
     out_dir.mkdir(parents=True, exist_ok=True)
-    output_mp4 = str(out_dir / f"job_{job.id}.mp4")
 
     brand_params = _json.loads(job.brand_data or "{}")
 
@@ -237,40 +236,6 @@ async def _run_brand_ad_pipeline(session: Session, job: Job) -> None:
     session.add(job); session.commit()
     await _update_job(session, job, "generating_script", "generating_script", "completed",
                       f"{len(scenes)} scenes generated")
-
-    await _update_job(session, job, "generating_voice", "generating_voice", "started",
-                      "Synthesising brand ad voiceover")
-    audio_bytes = await synthesize_speech(full_script, job.language)
-    await _update_job(session, job, "generating_voice", "generating_voice", "completed",
-                      f"Audio: {len(audio_bytes)} bytes")
-
-    await _update_job(session, job, "rendering_video", "rendering_video", "started",
-                      "Generating Flux images and rendering brand ad video")
-    images = []
-    for scene in scenes:
-        img_path = await generate_image(scene["image_prompt"], job.id, scene["scene"], settings.local_media_dir)
-        if not img_path:
-            # Flux failed — use scene-specific Pexels search query
-            from app.services.pexels_service import fetch_pexels_image
-            query = scene.get("search_query") or scene["image_prompt"][:50]
-            img_path = await fetch_pexels_image(query, job.id, scene["scene"], settings.local_media_dir)
-        images.append(img_path)
-
-    video_path = await render_video(
-        script=full_script,
-        audio_bytes=audio_bytes,
-        language=job.language,
-        video_format=job.format,
-        job_id=job.id,
-        media_dir=settings.local_media_dir,
-        title=f"{job.article_url} — {brand_params.get('product', '')}",
-        images=[i for i in images if i],
-        video_mode="brand_ad",
-    )
-    job.video_path = video_path
-    session.add(job); session.commit()
-    await _update_job(session, job, "rendering_video", "rendering_video", "completed",
-                      f"Brand ad saved: {Path(video_path).name}")
 
     # ── Sora-2 prompt generation (non-fatal) ──────────────────────────────────
     try:

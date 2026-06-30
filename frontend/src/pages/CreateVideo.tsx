@@ -8,6 +8,7 @@ import {
 import LanguagePicker from '../components/LanguagePicker'
 import FormatPicker from '../components/FormatPicker'
 import ProgressStepper from '../components/ProgressStepper'
+import { BRAND_AD_PIPELINE_STEPS } from '../types'
 import ModeSelector from '../components/ModeSelector'
 import BrandAdForm from '../components/BrandAdForm'
 import EducationalForm from '../components/EducationalForm'
@@ -510,6 +511,7 @@ export default function CreateVideo() {
                   <ProgressStepper
                     steps={liveJob?.steps ?? []}
                     currentStatus={liveJob?.status}
+                    pipelineSteps={liveJob?.mode === 'brand_ad' ? BRAND_AD_PIPELINE_STEPS : undefined}
                   />
                 </div>
               )}
