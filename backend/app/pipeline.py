@@ -291,6 +291,8 @@ async def _run_brand_ad_pipeline(session: Session, job: Job) -> None:
             cta=brand_params.get("cta", ""),
             tone=brand_params.get("tone", "emotional"),
             script=job.script or "",
+            brand_description=brand_params.get("brand_description", ""),
+            target_audience=brand_params.get("target_audience", ""),
             job_id=job.id,
             media_dir=settings.local_media_dir,
         )

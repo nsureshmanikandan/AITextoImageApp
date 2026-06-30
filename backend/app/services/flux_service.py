@@ -130,18 +130,22 @@ async def generate_image(prompt: str, job_id: int, scene_idx: int, media_dir: st
         return await fetch_pexels_image(prompt[:100], job_id, scene_idx, media_dir)
 
 
-_AD_VARIATION_SYSTEM = """You are a senior creative director at a top advertising agency.
+_AD_VARIATION_SYSTEM = """You are a senior creative director at a top healthcare advertising agency.
 Given a brand brief, generate 3 completely distinct ad creative angles.
 Each angle must differ in: emotional approach, visual scene, and messaging strategy.
 
+CRITICAL: The image_prompt MUST visually depict the specific health condition, symptoms, or treatment context
+described in the brand brief. Do NOT generate generic lifestyle images. If the product treats stomach pain or IBD,
+the image must show a person experiencing that symptom OR experiencing relief from it.
+
 Rules:
-- Angle 1: Emotional/empathy — focus on the human struggle or aspiration
-- Angle 2: Product/solution — focus on the product benefit or transformation
-- Angle 3: Social proof/action — focus on community, trust, or urgency
+- Angle 1: Emotional/empathy — show a real person visibly experiencing the health struggle (e.g. holding their stomach, looking fatigued, sitting alone in pain)
+- Angle 2: Product/solution — show transformation: person looking relieved, active, or healthy after treatment; include subtle product/clinic context
+- Angle 3: Social proof/action — show community or a supportive doctor-patient moment; people looking hopeful and engaged
 
 For each angle provide:
 - angle_name: short creative title (3-5 words)
-- image_prompt: detailed Flux 2.0 Pro photorealistic image prompt (100+ words, specify lighting, composition, subject, mood)
+- image_prompt: detailed Flux 2.0 Pro photorealistic image prompt (100+ words). Must reference the specific condition/symptom from the brief. Specify: exact subject action, lighting, camera angle, mood, color tone.
 - headline: punchy ad headline (5-8 words max)
 - subline: supporting line that expands the headline (10-15 words)
 - cta_text: call-to-action button text (2-4 words)
@@ -158,6 +162,8 @@ async def generate_ad_variations(
     script: str,
     job_id: int,
     media_dir: str,
+    brand_description: str = "",
+    target_audience: str = "",
 ) -> list[dict]:
     """
     Generate 3 unique ad variation images with copy for the animated banner.
@@ -166,10 +172,12 @@ async def generate_ad_variations(
     user_ctx = (
         f"Brand: {brand_name}\n"
         f"Product: {product}\n"
+        f"Brand description / condition treated: {brand_description}\n"
+        f"Target audience: {target_audience}\n"
         f"Key message: {key_message}\n"
         f"CTA: {cta}\n"
         f"Tone: {tone}\n"
-        f"Script excerpt: {script[:400]}"
+        f"Ad script excerpt: {script[:500]}"
     )
 
     variations_brief = []
