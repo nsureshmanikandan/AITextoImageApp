@@ -87,6 +87,7 @@ export interface BrandAdParams {
   brand_description?: string
   ad_reference?: string
   brand_colors?: string[]
+  logo_base64?: string
 }
 
 export interface EducationalParams {
