@@ -32,6 +32,12 @@ Your enhanced prompt MUST include:
 For medical/health scenes: show real people in realistic situations — patients, doctors, clinics.
 NEVER generate abstract, artistic, or symbolic images when a real human scene is described.
 
+CHARACTER PRESERVATION (CRITICAL): If the scene already describes a specific person
+(age, gender, ethnicity, hair, build, clothing), you MUST keep that exact physical and
+clothing description word-for-word. Do NOT change the person's appearance, age, or outfit —
+only enrich the setting, lighting, camera, and mood around them. This keeps the same
+character consistent across a multi-image ad campaign.
+
 Respond ONLY as JSON: {"prompt": "..."}"""
 
 
@@ -150,19 +156,30 @@ CONDITION-SPECIFIC VISUAL RULES:
 - Mental health: isolated figure looking anxious vs. calm person in warm light
 - Always show authentic patient emotion — NOT stock photo smiling
 
+CHARACTER CONSISTENCY (CRITICAL):
+The 3 images tell ONE patient's story, so they MUST feature the SAME main character.
+First, silently invent ONE detailed character persona and lock it: approximate age, gender,
+ethnicity, hair (color/length/style), build, and a signature outfit (e.g. "a woman in her
+mid-30s, South Asian, shoulder-length wavy black hair, slim build, wearing a soft grey
+cardigan over a sage-green top and light jeans").
+Then embed this EXACT same physical/clothing description, word-for-word, at the start of all
+3 image_prompts. Only the scene, setting, emotion, and pose change between images — the
+person's appearance and outfit stay identical so they read as the same individual.
+In Angle 3 (doctor/community), the SAME patient appears alongside a doctor or others.
+
 IMAGE RULES:
 - Describe VISUAL SCENE only — people, setting, lighting, colors, composition, camera angle
 - Do NOT include drug names, brand names, or medical claims in the prompt
 - 80–120 words per image_prompt
 
-Given the brand brief, generate 3 completely distinct ad creative angles:
-- Angle 1: Emotional/empathy — person visibly experiencing the health struggle (pain, fatigue, isolation)
-- Angle 2: Solution/relief — person after treatment; transformation, activity, relief, hope
-- Angle 3: Community/trust — supportive doctor-patient moment or group of people looking hopeful
+Given the brand brief, generate 3 ad creative angles featuring the SAME character:
+- Angle 1: Emotional/empathy — the character visibly experiencing the health struggle (pain, fatigue, isolation)
+- Angle 2: Solution/relief — the SAME character after treatment; transformation, activity, relief, hope
+- Angle 3: Community/trust — the SAME character in a supportive doctor-patient moment
 
 For each angle provide:
 - angle_name: short creative title (3-5 words)
-- image_prompt: Flux 2.0 Pro image prompt following all rules above
+- image_prompt: Flux 2.0 Pro image prompt following all rules above (must begin with the locked character description)
 - headline: punchy ad headline (5-8 words max)
 - subline: supporting line (10-15 words)
 - cta_text: call-to-action button text (2-4 words)
