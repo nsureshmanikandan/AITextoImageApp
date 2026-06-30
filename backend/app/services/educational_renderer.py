@@ -1135,10 +1135,25 @@ def render_educational_video_direct(
     with open(audio_path, "wb") as f:
         f.write(audio_bytes)
 
-    # Estimate duration: edge-tts 24kHz mono ~48 kb/s ≈ bytes/6000 s
+    # Determine true audio duration via ffprobe (accurate); fall back to estimate.
     if audio_secs <= 0:
-        audio_secs = max(len(audio_bytes) / 6000, len(chapters) * 4.0)
-    secs_per_scene = max(3.0, audio_secs / max(1, len(chapters)))
+        try:
+            probe = subprocess.run(
+                ["ffprobe", "-v", "error", "-show_entries", "format=duration",
+                 "-of", "default=noprint_wrappers=1:nokey=1", audio_path],
+                capture_output=True, text=True, check=True,
+            )
+            audio_secs = float(probe.stdout.strip())
+        except Exception:
+            # edge-tts 24kHz mono ~48 kb/s ≈ bytes/6000 s
+            audio_secs = max(len(audio_bytes) / 6000, len(chapters) * 4.0)
+
+    # Allocate each scene's on-screen time PROPORTIONAL to its narration length
+    # (word count) so the slide stays in sync with the voiceover instead of every
+    # chapter getting an equal slice. Speaking time ≈ proportional to word count.
+    weights = [max(1, len((c.get("narration", "") or "").split())) for c in chapters]
+    total_w = sum(weights) or 1
+    scene_secs = [max(3.0, audio_secs * w / total_w) for w in weights]
 
     writer = imageio.get_writer(
         silent_mp4, fps=_FPS, codec="libx264", quality=8, macro_block_size=1
@@ -1149,9 +1164,9 @@ def render_educational_video_direct(
         global _use_indic_font
         _use_indic_font = _detect_indic(chapter)
         animated = builder in _ANIMATED_BUILDERS
-        n_frames = max(1, int(secs_per_scene * _FPS))
+        n_frames = max(1, int(scene_secs[i] * _FPS))
         log.info("Scene %d/%d %s (%s, %.1fs)",
-                 i + 1, len(chapters), chapter.get("title", ""), "anim" if animated else "static", secs_per_scene)
+                 i + 1, len(chapters), chapter.get("title", ""), "anim" if animated else "static", scene_secs[i])
         try:
             if animated:
                 # Render one cycle (~27 frames) then tile — ~44x faster than
