@@ -1,5 +1,7 @@
 import { useState } from 'react'
 import type { BrandAdParams } from '../types'
+import BrandTemplatePicker from './BrandTemplatePicker'
+import type { BrandTemplate } from '../data/brandTemplates'
 
 interface Props {
   onSubmit: (params: BrandAdParams & { brand_colors?: string[] }) => void
@@ -26,6 +28,23 @@ export default function BrandAdForm({ onSubmit, loading }: Props) {
   const [adRef, setAdRef] = useState('')
   const [logoBase64, setLogoBase64] = useState<string>('')
   const [logoPreview, setLogoPreview] = useState<string>('')
+  const [selectedTemplateId, setSelectedTemplateId] = useState<string>('')
+
+  const applyTemplate = (t: BrandTemplate) => {
+    const p = t.params
+    setBrandName(p.brand_name)
+    setProduct(p.product)
+    setTargetAudience(p.target_audience)
+    setKeyMessage(p.key_message)
+    setCta(p.cta)
+    setTone(p.tone)
+    setBrandDescription(p.brand_description ?? '')
+    if (p.brand_colors && p.brand_colors.length >= 2) {
+      setPrimaryColor(p.brand_colors[0])
+      setSecondaryColor(p.brand_colors[1])
+    }
+    setSelectedTemplateId(t.id)
+  }
 
   const handleLogoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
@@ -59,6 +78,7 @@ export default function BrandAdForm({ onSubmit, loading }: Props) {
   return (
     <div className="glass-card p-8">
       <h2 className="text-xl font-bold text-white mb-6">Brand Ad Configuration</h2>
+      <BrandTemplatePicker onSelect={applyTemplate} selectedId={selectedTemplateId} />
       <form onSubmit={handleSubmit} className="space-y-5">
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
