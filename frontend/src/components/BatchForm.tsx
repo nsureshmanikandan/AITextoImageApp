@@ -3,7 +3,7 @@ import { getTrendingSuggestions, suggestTopics } from '../lib/api'
 import type { TrendingTopic } from '../types'
 
 interface Props {
-  onBatchSubmit: (topics: string[], language: string, format: string) => void
+  onBatchSubmit: (topics: string[], language: string, format: string, soraIntro: boolean) => void
   loading: boolean
 }
 
@@ -32,6 +32,7 @@ export default function BatchForm({ onBatchSubmit, loading }: Props) {
   const [manualInput, setManualInput]     = useState('')
   const [language, setLanguage]           = useState('en-IN')
   const [format, setFormat]               = useState('landscape_16_9')
+  const [soraIntro, setSoraIntro]         = useState(false)
 
   // AI suggestions state
   const [aiSuggestions, setAiSuggestions] = useState<AISuggestion[]>([])
@@ -261,8 +262,24 @@ export default function BatchForm({ onBatchSubmit, loading }: Props) {
           </div>
         </div>
 
+        {/* ── Cinematic Sora intro toggle ── */}
+        <label className="flex items-start gap-3 p-3 rounded-lg border-2 border-slate-700 hover:border-slate-500 cursor-pointer transition-all">
+          <input
+            type="checkbox"
+            checked={soraIntro}
+            onChange={e => setSoraIntro(e.target.checked)}
+            className="mt-1 accent-amber-500 w-4 h-4"
+          />
+          <span>
+            <span className="block text-sm font-semibold text-white">Add cinematic Sora intro to each video</span>
+            <span className="block text-xs text-slate-400">
+              A 12s cinematic opener per topic. Adds ~3–5 min <strong>per video</strong>.
+            </span>
+          </span>
+        </label>
+
         <button
-          onClick={() => onBatchSubmit(selected, language, format)}
+          onClick={() => onBatchSubmit(selected, language, format, soraIntro)}
           disabled={loading || selected.length === 0}
           className="btn-primary w-full disabled:opacity-50 disabled:cursor-not-allowed"
         >

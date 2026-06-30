@@ -8,7 +8,7 @@ import {
 import LanguagePicker from '../components/LanguagePicker'
 import FormatPicker from '../components/FormatPicker'
 import ProgressStepper from '../components/ProgressStepper'
-import { BRAND_AD_PIPELINE_STEPS } from '../types'
+import { BRAND_AD_PIPELINE_STEPS, EDUCATIONAL_PIPELINE_STEPS } from '../types'
 import ModeSelector from '../components/ModeSelector'
 import BrandAdForm from '../components/BrandAdForm'
 import EducationalForm from '../components/EducationalForm'
@@ -226,7 +226,7 @@ export default function CreateVideo() {
     setStep(3)
   }
 
-  const handleBatchSubmit = async (topics: string[], lang: string, fmt: string) => {
+  const handleBatchSubmit = async (topics: string[], lang: string, fmt: string, soraIntro: boolean) => {
     setStep(2)
     setElapsedSeconds(0)
     setSubmitting(true)
@@ -237,7 +237,7 @@ export default function CreateVideo() {
         language: lang as Language,
         format: fmt as VideoFormat,
         mode: 'batch',
-        brand_data: JSON.stringify({ topics }),
+        brand_data: JSON.stringify({ topics, sora_intro: soraIntro }),
       })
       addJob(job)
       setCreatedJob(job)
@@ -511,7 +511,14 @@ export default function CreateVideo() {
                   <ProgressStepper
                     steps={liveJob?.steps ?? []}
                     currentStatus={liveJob?.status}
-                    pipelineSteps={liveJob?.mode === 'brand_ad' ? BRAND_AD_PIPELINE_STEPS : undefined}
+                    pipelineSteps={
+                      liveJob?.mode === 'brand_ad'
+                        ? BRAND_AD_PIPELINE_STEPS
+                        : liveJob?.mode === 'educational'
+                          ? EDUCATIONAL_PIPELINE_STEPS.filter(
+                              s => s.key !== 'sora_intro' || educationalPayload?.sora_intro)
+                          : undefined
+                    }
                   />
                 </div>
               )}
