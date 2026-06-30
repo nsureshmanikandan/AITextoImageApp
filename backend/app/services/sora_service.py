@@ -83,6 +83,11 @@ AUDIO RULES:
 VISUAL RULES:
 - MAX 3 scene changes. Use smooth transitions (dissolve, slow pan).
 - Final 2 seconds: brand name clearly on screen.
+- PRODUCT VISIBILITY: If the brand sells a tangible product (e.g. a shoe, a soda can,
+  a bottle, a car, a serum), the PRODUCT must be clearly visible and in sharp focus in
+  at least one scene — ideally a hero close-up of the product. Don't show only lifestyle
+  footage without the product. For healthcare/awareness ads, show the patient/condition
+  story instead.
 
 OUTPUT: ONLY the Sora-2 prompt text. No explanations, no markdown. Under 250 words.
 Include brand name, product, key message, camera angles, lighting, mood, transitions."""
