@@ -105,3 +105,65 @@ def concat_intro(intro_path: str, lesson_path: str, out_path: str) -> str:
         capture_output=True, check=True,
     )
     return out_path
+
+
+async def generate_titled_intro(topic: str, chapter_titles: list[str],
+                                job_id, media_dir: str,
+                                poll_interval: int = 12, timeout: int = 420) -> str | None:
+    """Submit a Sora intro, poll, overlay title + agenda. Returns titled intro
+    path, or None if Sora is unavailable / times out."""
+    from app.services.sora_service import start_video_generation, poll_sora_video
+
+    out_dir = Path(media_dir).resolve()
+    out_dir.mkdir(parents=True, exist_ok=True)
+    prompt = build_intro_prompt(topic)
+    loop = asyncio.get_event_loop()
+
+    try:
+        vid_id = await loop.run_in_executor(
+            None, lambda: start_video_generation(prompt, resolution=_INTRO_RESOLUTION)
+        )
+    except Exception as e:
+        logger.warning("Sora intro submit failed for job %s: %s", job_id, e)
+        return None
+
+    raw_path = str(out_dir / f"job_{job_id}_intro_raw.mp4")
+
+    def _poll_and_save() -> str | None:
+        deadline = time.time() + timeout
+        while time.time() < deadline:
+            r = poll_sora_video(vid_id)
+            if r.get("ready"):
+                with open(raw_path, "wb") as f:
+                    f.write(base64.b64decode(r["base64"]))
+                return raw_path
+            time.sleep(poll_interval)
+        return None
+
+    saved = await loop.run_in_executor(None, _poll_and_save)
+    if not saved:
+        logger.warning("Sora intro timed out for job %s", job_id)
+        return None
+
+    titled_path = str(out_dir / f"job_{job_id}_intro.mp4")
+    agenda = build_agenda_lines(chapter_titles, max_lines=2)
+    await loop.run_in_executor(None, lambda: _overlay_title(saved, topic, agenda, titled_path))
+    return titled_path
+
+
+async def maybe_add_intro(topic: str, chapter_titles: list[str], lesson_path: str,
+                          job_id, media_dir: str) -> str:
+    """Generate a titled intro and concat before the lesson. Returns the final
+    path, or the original lesson_path if anything fails (non-fatal)."""
+    try:
+        intro = await generate_titled_intro(topic, chapter_titles, job_id, media_dir)
+        if not intro:
+            return lesson_path
+        out = str(Path(media_dir).resolve() / f"job_{job_id}_final.mp4")
+        await asyncio.get_event_loop().run_in_executor(
+            None, lambda: concat_intro(intro, lesson_path, out)
+        )
+        return out
+    except Exception as e:
+        logger.warning("Sora intro failed for job %s (non-fatal): %s", job_id, e)
+        return lesson_path

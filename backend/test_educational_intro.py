@@ -105,3 +105,40 @@ def test_concat_intro_joins_durations(tmp_path):
     assert _probe_wh(out) == (1920, 1080)
     # ~5s total (allow tolerance for re-encode boundaries)
     assert 4.0 <= _probe_duration(out) <= 6.0
+
+
+import asyncio
+
+
+def test_maybe_add_intro_falls_back_on_failure(tmp_path, monkeypatch):
+    """If intro generation returns None, the original lesson path is returned."""
+    import app.services.educational_intro as ei
+
+    async def fake_gen(topic, titles, job_id, media_dir):
+        return None  # simulate Sora unavailable
+
+    monkeypatch.setattr(ei, "generate_titled_intro", fake_gen)
+    lesson = str(tmp_path / "lesson.mp4")
+    open(lesson, "w").close()
+    result = asyncio.run(ei.maybe_add_intro("RAG", ["What is RAG?"], lesson,
+                                            job_id=1, media_dir=str(tmp_path)))
+    assert result == lesson
+
+
+def test_maybe_add_intro_concats_on_success(tmp_path, monkeypatch):
+    """If intro generation succeeds, the final concatenated path is returned."""
+    import app.services.educational_intro as ei
+
+    intro = str(tmp_path / "intro.mp4")
+    lesson = str(tmp_path / "lesson.mp4")
+    _make_synthetic_clip(intro, seconds=1, size="1920x1080")
+    _make_synthetic_clip(lesson, seconds=1, size="1920x1080")
+
+    async def fake_gen(topic, titles, job_id, media_dir):
+        return intro
+
+    monkeypatch.setattr(ei, "generate_titled_intro", fake_gen)
+    result = asyncio.run(ei.maybe_add_intro("RAG", ["What is RAG?"], lesson,
+                                            job_id=7, media_dir=str(tmp_path)))
+    assert result.endswith("job_7_final.mp4")
+    assert os.path.exists(result)
