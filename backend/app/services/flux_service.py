@@ -128,3 +128,77 @@ async def generate_image(prompt: str, job_id: int, scene_idx: int, media_dir: st
         logger.warning("Flux failed — trying Pexels fallback: %s", e)
         from app.services.pexels_service import fetch_pexels_image
         return await fetch_pexels_image(prompt[:100], job_id, scene_idx, media_dir)
+
+
+# Composition-specific system prompt for brand ad images
+_BRAND_COMPOSITION_SYSTEM = """You are an expert art director for premium brand advertising.
+Given brand context and a composition type, write a highly detailed Flux 2.0 Pro image prompt.
+
+Composition types and their visual requirements:
+- headline_overlay: Wide/medium lifestyle shot with intentional negative space (clean sky, wall, or soft background)
+  at top or bottom third for headline text overlay. Brand/product visible but not sole focus.
+  Think premium billboard or magazine spread. Cinematic, aspirational.
+- product_focus: Hero close-up of the product or brand element. Tack-sharp detail, studio-quality lighting,
+  premium surface/background. Think high-end print ad product photography. No people, pure product beauty.
+- cta_closeup: Human hands or face in an intimate action moment embodying the call-to-action.
+  Warm, authentic, emotionally resonant. Shallow depth of field. Shows the human benefit of the product.
+
+Respond ONLY as JSON: {"prompt": "..."}"""
+
+
+async def generate_brand_composition_images(
+    brand_name: str,
+    product: str,
+    key_message: str,
+    cta: str,
+    script: str,
+    job_id: int,
+    media_dir: str,
+) -> list[dict]:
+    """
+    Generate 3 brand ad composition images for the Review page animated banner.
+    Returns list of dicts: [{"composition": str, "label": str, "path": str}, ...]
+    On individual failure, path will be "" (frontend skips blank entries).
+    """
+    compositions = [
+        ("headline_overlay", "Headline Overlay"),
+        ("product_focus",    "Product Focus"),
+        ("cta_closeup",      "CTA Close-up"),
+    ]
+    results = []
+    for comp_key, comp_label in compositions:
+        user_ctx = (
+            f"Brand: {brand_name}\n"
+            f"Product: {product}\n"
+            f"Key message: {key_message}\n"
+            f"CTA: {cta}\n"
+            f"Ad script excerpt: {script[:300]}\n"
+            f"Composition type: {comp_key}"
+        )
+        try:
+            from openai import AsyncAzureOpenAI
+            client = AsyncAzureOpenAI(
+                azure_endpoint=settings.azure_openai_endpoint,
+                api_key=settings.azure_openai_key,
+                api_version=settings.azure_openai_api_version,
+            )
+            resp = await client.chat.completions.create(
+                model=settings.azure_openai_deployment,
+                messages=[
+                    {"role": "system", "content": _BRAND_COMPOSITION_SYSTEM},
+                    {"role": "user",   "content": user_ctx},
+                ],
+                temperature=0.7,
+                max_tokens=350,
+                response_format={"type": "json_object"},
+            )
+            flux_prompt = json.loads(resp.choices[0].message.content).get("prompt", "")
+        except Exception as e:
+            logger.warning("Brand composition prompt generation failed (%s): %s", comp_key, e)
+            flux_prompt = f"Premium brand advertisement for {product}. {key_message}. Photorealistic, cinematic."
+
+        path = await generate_image(flux_prompt, job_id, f"brand_{comp_key}", media_dir)
+        results.append({"composition": comp_key, "label": comp_label, "path": path})
+        logger.info("Brand composition image %s → %s", comp_key, path or "(failed)")
+
+    return results
