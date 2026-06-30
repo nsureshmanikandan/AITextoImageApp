@@ -49,3 +49,37 @@ def test_build_agenda_lines_empty():
     from app.services.educational_intro import build_agenda_lines
     assert build_agenda_lines([]) == []
     assert build_agenda_lines(["", "   "]) == []
+
+
+import os, subprocess
+
+
+def _make_synthetic_clip(path, seconds=2, size="1280x720"):
+    """Create a tiny silent test clip with FFmpeg lavfi."""
+    subprocess.run(
+        ["ffmpeg", "-y", "-f", "lavfi", "-i", f"color=c=navy:s={size}:d={seconds}",
+         "-f", "lavfi", "-i", f"sine=frequency=440:d={seconds}",
+         "-shortest", "-pix_fmt", "yuv420p", path],
+        capture_output=True, check=True,
+    )
+
+
+def _probe_wh(path):
+    out = subprocess.run(
+        ["ffprobe", "-v", "error", "-select_streams", "v:0",
+         "-show_entries", "stream=width,height", "-of", "csv=p=0", path],
+        capture_output=True, text=True, check=True,
+    ).stdout.strip()
+    w, h = out.split(",")
+    return int(w), int(h)
+
+
+def test_overlay_title_produces_1080p(tmp_path):
+    from app.services.educational_intro import _overlay_title
+    raw = str(tmp_path / "raw.mp4")
+    out = str(tmp_path / "titled.mp4")
+    _make_synthetic_clip(raw)
+    _overlay_title(raw, "RAG Learning for Beginners",
+                   ["What is RAG?  •  Why RAG Matters", "Code Example  •  Tools"], out)
+    assert os.path.exists(out)
+    assert _probe_wh(out) == (1920, 1080)

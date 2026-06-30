@@ -49,3 +49,40 @@ def build_agenda_lines(chapter_titles: list[str], max_lines: int = 2) -> list[st
     for i in range(0, len(items), per):
         lines.append("  •  ".join(items[i:i + per]))
     return lines[:max_lines]
+
+
+def _drawtext(textfile: str, font: str, size: int, y_expr: str,
+              start: float) -> str:
+    """Build one centered drawtext filter reading text from a file (avoids
+    escaping issues with :, ?, & and bullets in chapter titles)."""
+    tf = textfile.replace("\\", "/").replace(":", "\:")
+    ff = font.replace(":", "\:")
+    fade = f"if(lt(t,{start}),0,if(lt(t,{start + 1}),(t-{start}),1))"
+    return (
+        f"drawtext=fontfile='{ff}':textfile='{tf}':fontcolor=white:fontsize={size}"
+        f":x=(w-text_w)/2:y={y_expr}:shadowcolor=black@0.8:shadowx=3:shadowy=3"
+        f":alpha='{fade}'"
+    )
+
+
+def _overlay_title(raw_intro_path: str, title: str, agenda_lines: list[str],
+                   out_path: str) -> str:
+    """Scale the raw Sora clip to 1920x1080 and overlay title + agenda lines."""
+    tmp = Path(tempfile.mkdtemp(prefix="eduintro_"))
+    title_file = tmp / "title.txt"
+    title_file.write_text(title, encoding="utf-8")
+
+    filters = ["scale=1920:1080"]
+    filters.append(_drawtext(str(title_file), _FONT_BLD, 88, "h*0.34", 1.0))
+    for i, line in enumerate(agenda_lines[:2]):
+        line_file = tmp / f"agenda_{i}.txt"
+        line_file.write_text(line, encoding="utf-8")
+        y = f"h*0.34+{130 + i * 55}"
+        filters.append(_drawtext(str(line_file), _FONT_REG, 38, y, 1.5 + i * 0.5))
+
+    vf = ",".join(filters)
+    subprocess.run(
+        ["ffmpeg", "-y", "-i", raw_intro_path, "-vf", vf, "-c:a", "copy", out_path],
+        capture_output=True, check=True,
+    )
+    return out_path
