@@ -26,6 +26,21 @@ from app.ws_manager import ws_manager
 
 logger = logging.getLogger(__name__)
 
+# ── Request models for new routes ──────────────────────────────────────────
+from pydantic import BaseModel as _BaseModel
+
+class _SoraPromptBody(_BaseModel):
+    prompt: str
+
+class _AdCopyBody(_BaseModel):
+    tone: str   # "emotional" | "bold" | "professional" | "luxury"
+
+class _AdCopySelect(_BaseModel):
+    headline: str
+    subline: str
+    cta: str
+    tone: str
+
 router = APIRouter(prefix="/jobs", tags=["jobs"])
 
 VALID_LANGUAGES = {"ta-IN", "hi-IN", "te-IN", "kn-IN", "en-IN"}
@@ -254,6 +269,26 @@ def download_sora_video(job_id: int, session: Session = Depends(get_session)):
         media_type="video/mp4",
         filename=f"sora_job_{job_id}.mp4",
     )
+
+
+@router.patch("/{job_id}/sora-prompt")
+def update_sora_prompt(
+    job_id: int,
+    payload: _SoraPromptBody,
+    session: Session = Depends(get_session),
+):
+    """Save an edited Sora-2 prompt without re-submitting to Sora."""
+    import json as _json
+    job = session.get(Job, job_id)
+    if not job:
+        raise HTTPException(404, "Job not found")
+    bd = _json.loads(job.brand_data or "{}")
+    bd["sora_prompt"] = payload.prompt
+    job.brand_data = _json.dumps(bd)
+    session.add(job)
+    session.commit()
+    session.refresh(job)
+    return job
 
 
 @router.get("/{job_id}/video")
