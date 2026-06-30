@@ -271,6 +271,23 @@ def download_sora_video(job_id: int, session: Session = Depends(get_session)):
     )
 
 
+@router.get("/{job_id}/brand-image/{index}")
+def get_brand_image(job_id: int, index: int, session: Session = Depends(get_session)):
+    """Serve a brand composition image (0=headline_overlay, 1=product_focus, 2=cta_closeup)."""
+    import json as _json
+    job = session.get(Job, job_id)
+    if not job:
+        raise HTTPException(404, "Job not found")
+    bd = _json.loads(job.brand_data or "{}")
+    images: list = bd.get("brand_images", [])
+    if index < 0 or index >= len(images):
+        raise HTTPException(404, "Brand image index out of range")
+    path = images[index].get("path", "")
+    if not path or not Path(path).exists():
+        raise HTTPException(404, "Brand image not yet available")
+    return FileResponse(path=path, media_type="image/png")
+
+
 @router.patch("/{job_id}/sora-prompt")
 def update_sora_prompt(
     job_id: int,
