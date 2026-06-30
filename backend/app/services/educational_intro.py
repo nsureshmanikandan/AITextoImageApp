@@ -55,8 +55,8 @@ def _drawtext(textfile: str, font: str, size: int, y_expr: str,
               start: float) -> str:
     """Build one centered drawtext filter reading text from a file (avoids
     escaping issues with :, ?, & and bullets in chapter titles)."""
-    tf = textfile.replace("\\", "/").replace(":", "\:")
-    ff = font.replace(":", "\:")
+    tf = textfile.replace("\\", "/").replace(":", r"\:")
+    ff = font.replace(":", r"\:")
     fade = f"if(lt(t,{start}),0,if(lt(t,{start + 1}),(t-{start}),1))"
     return (
         f"drawtext=fontfile='{ff}':textfile='{tf}':fontcolor=white:fontsize={size}"
