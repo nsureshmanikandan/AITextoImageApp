@@ -79,6 +79,8 @@ build/
 *.flac
 *.aac
 backend/media/
+backend/uv_err.txt
+backend/uv_out.txt
 media/
 uploads/
 generated/
