@@ -291,6 +291,48 @@ def update_sora_prompt(
     return job
 
 
+@router.post("/{job_id}/regenerate-sora")
+async def regenerate_sora(
+    job_id: int,
+    payload: _SoraPromptBody,
+    background_tasks: BackgroundTasks,
+    session: Session = Depends(get_session),
+):
+    """Save edited prompt, re-submit to Sora, restart background poller."""
+    import json as _json
+    from app.services.sora_service import start_video_generation
+    from app.pipeline import _poll_sora_video
+
+    job = session.get(Job, job_id)
+    if not job:
+        raise HTTPException(404, "Job not found")
+
+    bd = _json.loads(job.brand_data or "{}")
+    bd["sora_prompt"] = payload.prompt
+    bd["sora_status"] = "submitted"
+    bd["sora_video_path"] = ""
+
+    try:
+        vid_id = start_video_generation(payload.prompt)
+    except ValueError as e:
+        raise HTTPException(502, f"Sora submission failed: {e}")
+
+    bd["sora_videostoreid"] = vid_id
+    job.brand_data = _json.dumps(bd)
+    session.add(job)
+    session.commit()
+
+    background_tasks.add_task(_poll_sora_video, job_id, vid_id)
+
+    await ws_manager.broadcast(job_id, {
+        "job_id": job_id,
+        "sora_status": "submitted",
+        "sora_videostoreid": vid_id,
+    })
+
+    return {"status": "submitted", "videostoreid": vid_id}
+
+
 @router.get("/{job_id}/video")
 def download_video(job_id: int, session: Session = Depends(get_session)):
     job = session.get(Job, job_id)
