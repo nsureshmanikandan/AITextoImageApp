@@ -4,7 +4,7 @@ import { motion } from 'framer-motion'
 import {
   CheckCircle2, RefreshCw, Trash2, ExternalLink,
   FileText, Clock, Languages, Maximize2, ChevronLeft, ChevronRight, Download,
-  Video, Copy, AlertCircle, Pencil, Wand2
+  Video, Copy, Pencil, Wand2
 } from 'lucide-react'
 import VideoPlayer from '../components/VideoPlayer'
 import Badge from '../components/Badge'
@@ -473,6 +473,21 @@ export default function Review() {
               <Clock className="w-3 h-3 inline mr-1" />{formatDate(job.created_at)}
             </span>
           </div>
+
+          {/* Ad Variations Banner — brand ads only, shown below the Sora video */}
+          {job.mode === 'brand_ad' && (() => {
+            let bd: Record<string, unknown> = {}
+            try { bd = JSON.parse(job.brand_data ?? '{}') } catch { /* */ }
+            const adVariations: AdVariation[] =
+              (bd.ad_variations as AdVariation[] | undefined)?.filter(v => v.image_path) ?? []
+            if (adVariations.length === 0) return null
+            const logoB64 = (bd.logo_base64 as string | undefined) ?? ''
+            return (
+              <div className="mt-4">
+                <BrandImageBanner jobId={id!} variations={adVariations} logoBase64={logoB64} />
+              </div>
+            )
+          })()}
         </div>
 
         {/* Right panel (40%) */}
@@ -607,17 +622,6 @@ export default function Review() {
               </div>
             </div>
           )}
-
-          {/* Ad Variations Banner — brand ads only */}
-          {job.mode === 'brand_ad' && (() => {
-            let bd: Record<string, unknown> = {}
-            try { bd = JSON.parse(job.brand_data ?? '{}') } catch { /* */ }
-            const adVariations: AdVariation[] =
-              (bd.ad_variations as AdVariation[] | undefined)?.filter(v => v.image_path) ?? []
-            if (adVariations.length === 0) return null
-            const logoB64 = (bd.logo_base64 as string | undefined) ?? ''
-            return <BrandImageBanner jobId={id!} variations={adVariations} logoBase64={logoB64} />
-          })()}
 
           {/* Actions */}
           {!approved ? (
