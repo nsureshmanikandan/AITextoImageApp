@@ -86,3 +86,22 @@ def _overlay_title(raw_intro_path: str, title: str, agenda_lines: list[str],
         capture_output=True, check=True,
     )
     return out_path
+
+
+def concat_intro(intro_path: str, lesson_path: str, out_path: str) -> str:
+    """Concatenate intro + lesson into one 1920x1080 MP4, re-encoding so both
+    segments share codec/fps/audio format (avoids concat stream-mismatch)."""
+    filter_complex = (
+        "[0:v]scale=1920:1080,setsar=1,fps=30[v0];"
+        "[1:v]scale=1920:1080,setsar=1,fps=30[v1];"
+        "[0:a]aformat=sample_rates=48000:channel_layouts=stereo[a0];"
+        "[1:a]aformat=sample_rates=48000:channel_layouts=stereo[a1];"
+        "[v0][a0][v1][a1]concat=n=2:v=1:a=1[v][a]"
+    )
+    subprocess.run(
+        ["ffmpeg", "-y", "-i", intro_path, "-i", lesson_path,
+         "-filter_complex", filter_complex, "-map", "[v]", "-map", "[a]",
+         "-c:v", "libx264", "-pix_fmt", "yuv420p", "-c:a", "aac", out_path],
+        capture_output=True, check=True,
+    )
+    return out_path

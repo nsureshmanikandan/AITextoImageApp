@@ -83,3 +83,25 @@ def test_overlay_title_produces_1080p(tmp_path):
                    ["What is RAG?  •  Why RAG Matters", "Code Example  •  Tools"], out)
     assert os.path.exists(out)
     assert _probe_wh(out) == (1920, 1080)
+
+
+def _probe_duration(path):
+    out = subprocess.run(
+        ["ffprobe", "-v", "error", "-show_entries", "format=duration",
+         "-of", "csv=p=0", path],
+        capture_output=True, text=True, check=True,
+    ).stdout.strip()
+    return float(out)
+
+
+def test_concat_intro_joins_durations(tmp_path):
+    from app.services.educational_intro import concat_intro
+    intro = str(tmp_path / "intro.mp4")
+    lesson = str(tmp_path / "lesson.mp4")
+    out = str(tmp_path / "final.mp4")
+    _make_synthetic_clip(intro, seconds=2, size="1920x1080")
+    _make_synthetic_clip(lesson, seconds=3, size="1920x1080")
+    concat_intro(intro, lesson, out)
+    assert _probe_wh(out) == (1920, 1080)
+    # ~5s total (allow tolerance for re-encode boundaries)
+    assert 4.0 <= _probe_duration(out) <= 6.0
