@@ -12,10 +12,88 @@ import ConfirmDialog from '../components/ConfirmDialog'
 import LoadingSpinner from '../components/LoadingSpinner'
 import { useJobStore } from '../stores/jobStore'
 import { useJobProgress } from '../hooks/useJobProgress'
-import { getJob, approveJob, rejectJob, deleteJob, getVideoUrl,
+import { api, getJob, approveJob, rejectJob, deleteJob, getVideoUrl,
          saveSoraPrompt, regenerateSoraPrompt, generateAdCopy, selectAdCopy,
          type AdCopyVariant } from '../lib/api'
 import { languageLabel, formatLabel, formatDate } from '../lib/utils'
+
+function BrandImageBanner({
+  jobId,
+  images,
+}: {
+  jobId: string
+  images: Array<{ composition: string; label: string; path: string }>
+}) {
+  const [activeIdx, setActiveIdx] = useState(0)
+  const [fade, setFade] = useState(true)
+
+  useEffect(() => {
+    if (images.length <= 1) return
+    const timer = setInterval(() => {
+      setFade(false)
+      setTimeout(() => {
+        setActiveIdx(prev => (prev + 1) % images.length)
+        setFade(true)
+      }, 300)
+    }, 3500)
+    return () => clearInterval(timer)
+  }, [images.length])
+
+  const goTo = (idx: number) => {
+    if (idx === activeIdx) return
+    setFade(false)
+    setTimeout(() => { setActiveIdx(idx); setFade(true) }, 200)
+  }
+
+  const img = images[activeIdx]
+
+  return (
+    <div className="glass-card overflow-hidden">
+      {/* Image area */}
+      <div className="relative w-full aspect-square bg-navy-900/60 overflow-hidden">
+        <img
+          src={`/api/jobs/${jobId}/brand-image/${activeIdx}`}
+          alt={img.label}
+          className="w-full h-full object-cover"
+          style={{
+            opacity: fade ? 1 : 0,
+            transition: 'opacity 0.3s ease-in-out',
+          }}
+        />
+        {/* Composition label badge */}
+        <div className="absolute bottom-3 left-3">
+          <span className="text-xs px-2 py-1 rounded-full bg-black/60 text-purple-300 font-medium backdrop-blur-sm">
+            {img.label}
+          </span>
+        </div>
+        {/* Download button */}
+        <div className="absolute top-3 right-3">
+          <a
+            href={`/api/jobs/${jobId}/brand-image/${activeIdx}`}
+            download={`brand_${img.composition}_${jobId}.png`}
+            className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-black/60 hover:bg-black/80 text-white text-xs backdrop-blur-sm transition-colors"
+          >
+            <Download className="w-3 h-3" /> Save
+          </a>
+        </div>
+      </div>
+      {/* Dot navigation */}
+      <div className="flex items-center justify-center gap-2 py-2 bg-white/5 border-t border-white/5">
+        {images.map((_, i) => (
+          <button
+            key={i}
+            onClick={() => goTo(i)}
+            className={`rounded-full transition-all ${
+              i === activeIdx
+                ? 'w-4 h-2 bg-purple-400'
+                : 'w-2 h-2 bg-slate-600 hover:bg-slate-400'
+            }`}
+          />
+        ))}
+      </div>
+    </div>
+  )
+}
 
 export default function Review() {
   const { id } = useParams<{ id: string }>()
@@ -263,10 +341,9 @@ export default function Review() {
                         <button
                           onClick={async () => {
                             try {
-                              const res = await fetch(`/api/jobs/${id}/sora-check`, { method: 'POST' })
-                              const data = await res.json()
+                              const { data } = await api.post(`/api/jobs/${id}/sora-check`)
                               if (data.status === 'completed') {
-                                const fresh = await fetch(`/api/jobs/${id}`).then(r => r.json())
+                                const { data: fresh } = await api.get(`/api/jobs/${id}`)
                                 updateJob(fresh)
                               }
                             } catch { /* ignore */ }
@@ -601,19 +678,16 @@ export default function Review() {
             </div>
           )}
 
-          {/* Flux-2 Brand Ad MP4 — below script */}
-          {job.mode === 'brand_ad' && videoSrc && (
-            <div className="glass-card overflow-hidden">
-              <VideoPlayer
-                src={videoSrc}
-                format={playerFormat}
-                className="w-full aspect-video"
-              />
-              <div className="p-2 bg-white/5 border-t border-white/5">
-                <span className="text-xs text-slate-400">Flux-2 Brand Ad MP4</span>
-              </div>
-            </div>
-          )}
+          {/* Brand Composition Images — animated banner */}
+          {job.mode === 'brand_ad' && (() => {
+            let bd: Record<string, unknown> = {}
+            try { bd = JSON.parse(job.brand_data ?? '{}') } catch { /* */ }
+            const brandImages: Array<{composition: string; label: string; path: string}> =
+              (bd.brand_images as Array<{composition: string; label: string; path: string}> | undefined)
+                ?.filter(i => i.path) ?? []
+            if (brandImages.length === 0) return null
+            return <BrandImageBanner jobId={id!} images={brandImages} />
+          })()}
 
           {/* Actions */}
           {!approved ? (
