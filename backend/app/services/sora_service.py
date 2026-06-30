@@ -10,6 +10,7 @@ import time
 import base64
 import os
 import requests
+from pathlib import Path
 
 logger = logging.getLogger(__name__)
 
@@ -228,11 +229,20 @@ def _get_env_secret(name: str) -> str:
     return val
 
 
+_SAFE_RESOLUTION = "720x1280"   # always supported by base sora-2 model
+
+
 def start_video_generation(prompt: str) -> str:
     """
     Submit a video generation job to the Sora-2 API gateway.
     Returns videostoreid on success.
     Raises ValueError if credentials are not configured.
+
+    Resolution/duration are configurable via .env (SORA_RESOLUTION, SORA_DURATION).
+    Base sora-2 supports 720x1280 / 1280x720. HD sizes (1024x1792 / 1792x1024)
+    require a sora-2-pro deployment — set SORA_MODEL_ID to the pro model and
+    SORA_RESOLUTION=1024x1792. If the gateway rejects the configured resolution,
+    we log the error and auto-retry once at the safe 720x1280 so the job survives.
     """
     _, headers = _get_sora_token()
     url = (
@@ -242,13 +252,28 @@ def start_video_generation(prompt: str) -> str:
         f"/Model/{_get_env_secret('SORA_MODEL_ID')}"
         f"/VideoGeneration"
     )
-    gen_resp = requests.post(
-        url,
-        headers=headers,
-        json={"callbackurl": "", "prompt": prompt, "Resolution": "720x1280", "Duration": "12"},
-        verify=False,
-        timeout=30,
-    )
+    resolution = _try_env("SORA_RESOLUTION", _SAFE_RESOLUTION)
+    duration   = _try_env("SORA_DURATION", "12")
+
+    def _submit(res: str):
+        return requests.post(
+            url,
+            headers=headers,
+            json={"callbackurl": "", "prompt": prompt, "Resolution": res, "Duration": duration},
+            verify=False,
+            timeout=30,
+        )
+
+    gen_resp = _submit(resolution)
+
+    # Graceful fallback: if a non-default resolution is rejected, retry at the safe size.
+    if gen_resp.status_code != 200 and resolution != _SAFE_RESOLUTION:
+        logger.warning(
+            "Sora rejected resolution %s (%d: %s) — retrying at %s",
+            resolution, gen_resp.status_code, gen_resp.text[:200], _SAFE_RESOLUTION,
+        )
+        gen_resp = _submit(_SAFE_RESOLUTION)
+
     if gen_resp.status_code != 200:
         raise ValueError(f"Sora generation error {gen_resp.status_code}: {gen_resp.text[:200]}")
 
@@ -256,6 +281,7 @@ def start_video_generation(prompt: str) -> str:
     vid_id = (data.get("response") or [{}])[0].get("videostoreid", "")
     if not vid_id:
         raise ValueError(f"No videostoreid in Sora response: {data}")
+    logger.info("Sora-2 job submitted at %s (%ss): %s", resolution, duration, vid_id)
     return vid_id
 
 
