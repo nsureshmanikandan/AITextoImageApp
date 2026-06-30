@@ -24,3 +24,11 @@ def test_start_video_generation_uses_resolution_override(monkeypatch):
     vid = ss.start_video_generation("a prompt", resolution="1280x720")
     assert vid == "vid-123"
     assert captured["resolution"] == "1280x720"
+
+
+def test_build_intro_prompt_mentions_topic_and_bans_text():
+    from app.services.educational_intro import build_intro_prompt
+    p = build_intro_prompt("RAG Learning for Beginners")
+    assert "RAG Learning for Beginners" in p
+    assert "No on-screen text" in p
+    assert "16:9" in p
