@@ -333,6 +333,91 @@ async def regenerate_sora(
     return {"status": "submitted", "videostoreid": vid_id}
 
 
+@router.post("/{job_id}/ad-copy")
+async def generate_ad_copy(
+    job_id: int,
+    payload: _AdCopyBody,
+    session: Session = Depends(get_session),
+):
+    """Generate 3 headline/subline/CTA ad copy variants using GPT-4o."""
+    import json as _json, re as _re
+    from app.config import settings
+    from openai import AsyncAzureOpenAI
+
+    job = session.get(Job, job_id)
+    if not job:
+        raise HTTPException(404, "Job not found")
+
+    script = job.script or ""
+    bd = _json.loads(job.brand_data or "{}")
+    brand_name = bd.get("brand_name", "")
+
+    tone_map = {
+        "emotional":    "warm, empathetic, story-driven — connect emotionally with the audience",
+        "bold":         "punchy, confident, high-energy — make a strong statement",
+        "professional": "clear, authoritative, trust-building — speak to informed audiences",
+        "luxury":       "sophisticated, premium, aspirational — evoke exclusivity and quality",
+    }
+    tone_desc = tone_map.get(payload.tone, payload.tone)
+
+    if not settings.azure_openai_key:
+        raise HTTPException(503, "Azure OpenAI not configured")
+
+    client = AsyncAzureOpenAI(
+        azure_endpoint=settings.azure_openai_endpoint,
+        api_key=settings.azure_openai_key,
+        api_version=settings.azure_openai_api_version,
+    )
+
+    user_prompt = (
+        f"You are a marketing copywriter. Based on this campaign script, "
+        f"generate 3 ad copy variants with tone: {tone_desc}.\n\n"
+        f"Script:\n{script[:1500]}\n\n"
+        f"Brand: {brand_name}\n\n"
+        "Return ONLY a JSON array with exactly 3 objects, no markdown:\n"
+        '[{"headline": "...", "subline": "...", "cta": "..."}]\n'
+        "Headlines: max 8 words. Sublines: max 15 words. CTAs: max 5 words."
+    )
+
+    try:
+        resp = await client.chat.completions.create(
+            model=settings.azure_openai_deployment,
+            messages=[{"role": "user", "content": user_prompt}],
+            temperature=0.8,
+            max_tokens=300,
+        )
+        text = resp.choices[0].message.content or "[]"
+        text = _re.sub(r"```json|```", "", text).strip()
+        variants = _json.loads(text)
+        return {"variants": variants[:3]}
+    except Exception as e:
+        logger.exception("Ad copy generation failed: %s", e)
+        raise HTTPException(502, f"Ad copy generation failed: {e}")
+
+
+@router.patch("/{job_id}/ad-copy/select")
+def select_ad_copy(
+    job_id: int,
+    payload: _AdCopySelect,
+    session: Session = Depends(get_session),
+):
+    """Save the user-chosen ad copy variant to brand_data."""
+    import json as _json
+    job = session.get(Job, job_id)
+    if not job:
+        raise HTTPException(404, "Job not found")
+    bd = _json.loads(job.brand_data or "{}")
+    bd["ad_headline"]  = payload.headline
+    bd["ad_subline"]   = payload.subline
+    bd["ad_cta"]       = payload.cta
+    bd["ad_copy_tone"] = payload.tone
+    job.brand_data = _json.dumps(bd)
+    session.add(job)
+    session.commit()
+    session.refresh(job)
+    return job
+
+
 @router.get("/{job_id}/video")
 def download_video(job_id: int, session: Session = Depends(get_session)):
     job = session.get(Job, job_id)
