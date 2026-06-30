@@ -246,11 +246,12 @@ async def generate_ad_variations(
     for i, brief in enumerate(variations_brief[:3]):
         img_path = await generate_image(brief.get("image_prompt", ""), job_id, f"advar_{i}", media_dir)
         results.append({
-            "angle_name": brief.get("angle_name", f"Variation {i+1}"),
-            "headline":   brief.get("headline", ""),
-            "subline":    brief.get("subline", ""),
-            "cta_text":   brief.get("cta_text", cta),
-            "image_path": img_path,
+            "angle_name":   brief.get("angle_name", f"Variation {i+1}"),
+            "headline":     brief.get("headline", ""),
+            "subline":      brief.get("subline", ""),
+            "cta_text":     brief.get("cta_text", cta),
+            "image_prompt": brief.get("image_prompt", ""),
+            "image_path":   img_path,
         })
         logger.info("Ad variation %d (%s) → %s", i, brief.get("angle_name"), img_path or "(failed)")
 
