@@ -27,9 +27,11 @@ type AdVariation = {
 function BrandImageBanner({
   jobId,
   variations,
+  logoBase64,
 }: {
   jobId: string
   variations: AdVariation[]
+  logoBase64?: string
 }) {
   const [activeIdx, setActiveIdx] = useState(0)
   const [fade, setFade] = useState(true)
@@ -67,20 +69,33 @@ function BrandImageBanner({
         {/* Gradient overlay */}
         <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-black/10 to-transparent" />
         {/* Text overlay */}
-        <div className="absolute inset-0 flex flex-col justify-end p-4">
-          <span className="text-[10px] font-bold uppercase tracking-widest text-purple-300 bg-white/10 border border-purple-500/40 rounded-full px-2.5 py-0.5 w-fit mb-2">
-            {v.angle_name}
-          </span>
-          <h3 className="text-white font-extrabold text-lg leading-tight mb-1 drop-shadow-lg">
-            {v.headline}
-          </h3>
-          <p className="text-white/80 text-xs leading-relaxed mb-3">
-            {v.subline}
-          </p>
-          <div className="flex items-center gap-2">
-            <span className="flex-1 text-center text-xs font-bold text-white bg-purple-600 hover:bg-purple-500 rounded-lg px-3 py-2">
-              {v.cta_text}
+        <div className="absolute inset-0 flex flex-col justify-between p-4">
+          {/* Logo top-left */}
+          {logoBase64 ? (
+            <div className="self-start">
+              <img
+                src={`data:image/png;base64,${logoBase64}`}
+                alt="Brand logo"
+                className="h-8 w-auto max-w-[90px] object-contain drop-shadow-lg"
+              />
+            </div>
+          ) : <div />}
+          {/* Bottom text */}
+          <div>
+            <span className="text-[10px] font-bold uppercase tracking-widest text-purple-300 bg-white/10 border border-purple-500/40 rounded-full px-2.5 py-0.5 w-fit mb-2 block">
+              {v.angle_name}
             </span>
+            <h3 className="text-white font-extrabold text-lg leading-tight mb-1 drop-shadow-lg">
+              {v.headline}
+            </h3>
+            <p className="text-white/80 text-xs leading-relaxed mb-3">
+              {v.subline}
+            </p>
+            <div className="flex items-center gap-2">
+              <span className="flex-1 text-center text-xs font-bold text-white bg-purple-600 hover:bg-purple-500 rounded-lg px-3 py-2">
+                {v.cta_text}
+              </span>
+            </div>
           </div>
         </div>
       </div>
@@ -600,7 +615,8 @@ export default function Review() {
             const adVariations: AdVariation[] =
               (bd.ad_variations as AdVariation[] | undefined)?.filter(v => v.image_path) ?? []
             if (adVariations.length === 0) return null
-            return <BrandImageBanner jobId={id!} variations={adVariations} />
+            const logoB64 = (bd.logo_base64 as string | undefined) ?? ''
+            return <BrandImageBanner jobId={id!} variations={adVariations} logoBase64={logoB64} />
           })()}
 
           {/* Actions */}
