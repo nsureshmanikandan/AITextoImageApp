@@ -4,7 +4,7 @@ import { motion } from 'framer-motion'
 import {
   CheckCircle2, RefreshCw, Trash2, ExternalLink,
   FileText, Clock, Languages, Maximize2, ChevronLeft, ChevronRight, Download,
-  Video, Copy, AlertCircle, Pencil, Wand2, Check
+  Video, Copy, AlertCircle, Pencil, Wand2
 } from 'lucide-react'
 import VideoPlayer from '../components/VideoPlayer'
 import Badge from '../components/Badge'
@@ -13,31 +13,38 @@ import LoadingSpinner from '../components/LoadingSpinner'
 import { useJobStore } from '../stores/jobStore'
 import { useJobProgress } from '../hooks/useJobProgress'
 import { api, getJob, approveJob, rejectJob, deleteJob, getVideoUrl,
-         saveSoraPrompt, regenerateSoraPrompt, generateAdCopy, selectAdCopy,
-         type AdCopyVariant } from '../lib/api'
+         saveSoraPrompt, regenerateSoraPrompt } from '../lib/api'
 import { languageLabel, formatLabel, formatDate } from '../lib/utils'
+
+type AdVariation = {
+  angle_name: string
+  headline: string
+  subline: string
+  cta_text: string
+  image_path: string
+}
 
 function BrandImageBanner({
   jobId,
-  images,
+  variations,
 }: {
   jobId: string
-  images: Array<{ composition: string; label: string; path: string }>
+  variations: AdVariation[]
 }) {
   const [activeIdx, setActiveIdx] = useState(0)
   const [fade, setFade] = useState(true)
 
   useEffect(() => {
-    if (images.length <= 1) return
+    if (variations.length <= 1) return
     const timer = setInterval(() => {
       setFade(false)
       setTimeout(() => {
-        setActiveIdx(prev => (prev + 1) % images.length)
+        setActiveIdx(prev => (prev + 1) % variations.length)
         setFade(true)
       }, 300)
     }, 3500)
     return () => clearInterval(timer)
-  }, [images.length])
+  }, [variations.length])
 
   const goTo = (idx: number) => {
     if (idx === activeIdx) return
@@ -45,51 +52,59 @@ function BrandImageBanner({
     setTimeout(() => { setActiveIdx(idx); setFade(true) }, 200)
   }
 
-  const img = images[activeIdx]
+  const v = variations[activeIdx]
 
   return (
     <div className="glass-card overflow-hidden">
-      {/* Image area */}
+      {/* Image with text overlay */}
       <div className="relative w-full aspect-square bg-navy-900/60 overflow-hidden">
         <img
           src={`/api/jobs/${jobId}/brand-image/${activeIdx}`}
-          alt={img.label}
+          alt={v.angle_name}
           className="w-full h-full object-cover"
-          style={{
-            opacity: fade ? 1 : 0,
-            transition: 'opacity 0.3s ease-in-out',
-          }}
+          style={{ opacity: fade ? 1 : 0, transition: 'opacity 0.3s ease-in-out' }}
         />
-        {/* Composition label badge */}
-        <div className="absolute bottom-3 left-3">
-          <span className="text-xs px-2 py-1 rounded-full bg-black/60 text-purple-300 font-medium backdrop-blur-sm">
-            {img.label}
+        {/* Gradient overlay */}
+        <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-black/10 to-transparent" />
+        {/* Text overlay */}
+        <div className="absolute inset-0 flex flex-col justify-end p-4">
+          <span className="text-[10px] font-bold uppercase tracking-widest text-purple-300 bg-white/10 border border-purple-500/40 rounded-full px-2.5 py-0.5 w-fit mb-2">
+            {v.angle_name}
           </span>
-        </div>
-        {/* Download button */}
-        <div className="absolute top-3 right-3">
-          <a
-            href={`/api/jobs/${jobId}/brand-image/${activeIdx}`}
-            download={`brand_${img.composition}_${jobId}.png`}
-            className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-black/60 hover:bg-black/80 text-white text-xs backdrop-blur-sm transition-colors"
-          >
-            <Download className="w-3 h-3" /> Save
-          </a>
+          <h3 className="text-white font-extrabold text-lg leading-tight mb-1 drop-shadow-lg">
+            {v.headline}
+          </h3>
+          <p className="text-white/80 text-xs leading-relaxed mb-3">
+            {v.subline}
+          </p>
+          <div className="flex items-center gap-2">
+            <span className="flex-1 text-center text-xs font-bold text-white bg-purple-600 hover:bg-purple-500 rounded-lg px-3 py-2">
+              {v.cta_text}
+            </span>
+          </div>
         </div>
       </div>
-      {/* Dot navigation */}
-      <div className="flex items-center justify-center gap-2 py-2 bg-white/5 border-t border-white/5">
-        {images.map((_, i) => (
-          <button
-            key={i}
-            onClick={() => goTo(i)}
-            className={`rounded-full transition-all ${
-              i === activeIdx
-                ? 'w-4 h-2 bg-purple-400'
-                : 'w-2 h-2 bg-slate-600 hover:bg-slate-400'
-            }`}
-          />
-        ))}
+      {/* Footer: dots + download */}
+      <div className="flex items-center justify-between px-4 py-2 bg-white/5 border-t border-white/5">
+        <div className="flex items-center gap-2">
+          {variations.map((_, i) => (
+            <button
+              key={i}
+              onClick={() => goTo(i)}
+              className={`rounded-full transition-all ${
+                i === activeIdx ? 'w-4 h-2 bg-purple-400' : 'w-2 h-2 bg-slate-600 hover:bg-slate-400'
+              }`}
+            />
+          ))}
+        </div>
+        <a
+          href={`/api/jobs/${jobId}/brand-banner.html`}
+          download={`brand_banner_${jobId}.html`}
+          className="flex items-center gap-1.5 text-xs font-medium text-white bg-purple-600/80 hover:bg-purple-500 px-3 py-1.5 rounded-lg transition-colors"
+        >
+          <Download className="w-3 h-3" />
+          Download Banner
+        </a>
       </div>
     </div>
   )
@@ -115,14 +130,6 @@ export default function Review() {
   const [soraEditText, setSoraEditText]         = useState('')
   const [soraEditSaving, setSoraEditSaving]     = useState(false)
   const [soraRegenerating, setSoraRegenerating] = useState(false)
-
-  // Feature: Ad copy suggestions
-  type AdTone = 'emotional' | 'bold' | 'professional' | 'luxury'
-  const [adCopyTone, setAdCopyTone]         = useState<AdTone>('emotional')
-  const [adCopyVariants, setAdCopyVariants] = useState<AdCopyVariant[]>([])
-  const [adCopyLoading, setAdCopyLoading]   = useState(false)
-  const [selectedAdIdx, setSelectedAdIdx]   = useState<number | null>(null)
-  const [adCopySaved, setAdCopySaved]       = useState(false)
 
   // Live WS updates
   useJobProgress(id ?? null)
@@ -586,107 +593,14 @@ export default function Review() {
             </div>
           )}
 
-          {/* Ad Copy Suggestions — brand ads only */}
-          {job.mode === 'brand_ad' && (
-            <div className="glass-card p-5">
-              <div className="flex items-center gap-2 mb-4">
-                <Wand2 className="w-4 h-4 text-purple-400" />
-                <h3 className="text-sm font-semibold text-white">Ad Copy Suggestions</h3>
-              </div>
-
-              {/* Tone picker */}
-              <div className="flex gap-2 flex-wrap mb-3">
-                {(['emotional', 'bold', 'professional', 'luxury'] as const).map((t) => (
-                  <button
-                    key={t}
-                    onClick={() => setAdCopyTone(t)}
-                    className={`text-xs px-3 py-1 rounded-full border capitalize transition-colors ${
-                      adCopyTone === t
-                        ? 'bg-purple-600 border-purple-500 text-white'
-                        : 'bg-navy-800/60 border-white/10 text-slate-400 hover:text-white'
-                    }`}
-                  >
-                    {t}
-                  </button>
-                ))}
-              </div>
-
-              {/* Generate button */}
-              <button
-                disabled={adCopyLoading}
-                onClick={async () => {
-                  setAdCopyLoading(true)
-                  setAdCopyVariants([])
-                  setSelectedAdIdx(null)
-                  try {
-                    const result = await generateAdCopy(id!, adCopyTone)
-                    setAdCopyVariants(result.variants)
-                  } catch { /* silent */ }
-                  finally { setAdCopyLoading(false) }
-                }}
-                className="w-full text-xs px-3 py-2 rounded-lg bg-purple-600/80 hover:bg-purple-500 text-white transition-colors disabled:opacity-50 flex items-center justify-center gap-2 mb-3"
-              >
-                {adCopyLoading ? (
-                  <>
-                    <div className="w-3 h-3 border border-white border-t-transparent rounded-full animate-spin" />
-                    Generating…
-                  </>
-                ) : 'Generate Copy'}
-              </button>
-
-              {/* Variant cards */}
-              {adCopyVariants.length > 0 && (
-                <div className="flex flex-col gap-2">
-                  {adCopyVariants.map((v, i) => (
-                    <div
-                      key={i}
-                      onClick={() => setSelectedAdIdx(i)}
-                      className={`p-3 rounded-lg border cursor-pointer transition-colors ${
-                        selectedAdIdx === i
-                          ? 'border-purple-500 bg-purple-500/10'
-                          : 'border-white/10 bg-white/5 hover:border-purple-500/40'
-                      }`}
-                    >
-                      <p className="text-xs font-bold text-white mb-0.5">{v.headline}</p>
-                      <p className="text-xs text-slate-400 mb-1.5">{v.subline}</p>
-                      <span className="text-xs px-2 py-0.5 rounded-full bg-purple-600/40 text-purple-300">
-                        {v.cta}
-                      </span>
-                    </div>
-                  ))}
-
-                  {/* Save selection */}
-                  {selectedAdIdx !== null && (
-                    <button
-                      onClick={async () => {
-                        const v = adCopyVariants[selectedAdIdx]
-                        try {
-                          const updated = await selectAdCopy(id!, v, adCopyTone)
-                          updateJob(updated)
-                          setAdCopySaved(true)
-                          setTimeout(() => setAdCopySaved(false), 2000)
-                        } catch { /* silent */ }
-                      }}
-                      className="text-xs px-3 py-1.5 rounded-lg bg-emerald-600/80 hover:bg-emerald-500 text-white transition-colors flex items-center justify-center gap-1.5"
-                    >
-                      <Check className="w-3 h-3" />
-                      {adCopySaved ? 'Saved!' : 'Use this copy'}
-                    </button>
-                  )}
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* Brand Composition Images — animated banner */}
+          {/* Ad Variations Banner — brand ads only */}
           {job.mode === 'brand_ad' && (() => {
             let bd: Record<string, unknown> = {}
             try { bd = JSON.parse(job.brand_data ?? '{}') } catch { /* */ }
-            const brandImages: Array<{composition: string; label: string; path: string}> =
-              (bd.brand_images as Array<{composition: string; label: string; path: string}> | undefined)
-                ?.filter(i => i.path) ?? []
-            if (brandImages.length === 0) return null
-            return <BrandImageBanner jobId={id!} images={brandImages} />
+            const adVariations: AdVariation[] =
+              (bd.ad_variations as AdVariation[] | undefined)?.filter(v => v.image_path) ?? []
+            if (adVariations.length === 0) return null
+            return <BrandImageBanner jobId={id!} variations={adVariations} />
           })()}
 
           {/* Actions */}
