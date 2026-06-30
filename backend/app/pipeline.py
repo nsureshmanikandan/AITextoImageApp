@@ -385,6 +385,23 @@ async def _run_educational_pipeline(session: Session, job: Job) -> None:
     await _update_job(session, job, "rendering_video", "rendering_video", "completed",
                       f"Educational video saved: {Path(video_path).name}")
 
+    # ── Optional cinematic Sora intro (non-fatal) ──────────────────────────────
+    if edu_params.get("sora_intro"):
+        await _update_job(session, job, "sora_intro", "sora_intro", "started",
+                          "Generating cinematic Sora intro (~3-5 min)")
+        from app.services.educational_intro import maybe_add_intro
+        titles = [c.get("title", "") for c in chapters]
+        final_path = await maybe_add_intro(topic, titles, video_path,
+                                           job.id, settings.local_media_dir)
+        if final_path != video_path:
+            job.video_path = final_path
+            session.add(job); session.commit()
+            await _update_job(session, job, "sora_intro", "sora_intro", "completed",
+                              f"Cinematic intro added: {Path(final_path).name}")
+        else:
+            await _update_job(session, job, "sora_intro", "sora_intro", "completed",
+                              "Intro skipped — slide video kept (Sora unavailable)")
+
 
 # ── Batch pipeline ────────────────────────────────────────────────────────────
 async def _run_batch_pipeline(session: Session, job: Job) -> None:
