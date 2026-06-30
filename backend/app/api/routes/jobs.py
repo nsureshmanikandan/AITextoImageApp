@@ -279,13 +279,92 @@ def get_brand_image(job_id: int, index: int, session: Session = Depends(get_sess
     if not job:
         raise HTTPException(404, "Job not found")
     bd = _json.loads(job.brand_data or "{}")
-    images: list = bd.get("brand_images", [])
+    images: list = bd.get("ad_variations", [])
     if index < 0 or index >= len(images):
         raise HTTPException(404, "Brand image index out of range")
-    path = images[index].get("path", "")
+    path = images[index].get("image_path", "")
     if not path or not Path(path).exists():
         raise HTTPException(404, "Brand image not yet available")
     return FileResponse(path=path, media_type="image/png")
+
+
+@router.get("/{job_id}/brand-banner.html")
+def get_brand_banner(job_id: int, session: Session = Depends(get_session)):
+    """Generate and serve a self-contained HTML5 animated ad banner."""
+    import json as _json, base64 as _b64, tempfile as _tmp
+    job = session.get(Job, job_id)
+    if not job:
+        raise HTTPException(404, "Job not found")
+    bd = _json.loads(job.brand_data or "{}")
+    variations: list = bd.get("ad_variations", [])
+    if not variations:
+        raise HTTPException(404, "Ad variations not yet generated")
+
+    colors = bd.get("brand_colors", ["#6d28d9", "#ffffff"])
+    primary   = colors[0] if len(colors) > 0 else "#6d28d9"
+    secondary = colors[1] if len(colors) > 1 else "#ffffff"
+    brand_name = bd.get("brand_name", job.article_url.split("/")[-1][:30])
+
+    # Build per-frame data
+    frames_html = ""
+    for i, v in enumerate(variations[:3]):
+        path = v.get("image_path", "")
+        if path and Path(path).exists():
+            with open(path, "rb") as f:
+                b64 = _b64.b64encode(f.read()).decode()
+            img_tag = f'<img src="data:image/png;base64,{b64}" class="bg-img" alt="{v.get("angle_name","")}">'
+        else:
+            img_tag = f'<div class="bg-img" style="background:{primary}20"></div>'
+
+        delay   = i * 3.5
+        frames_html += f"""
+  <div class="frame" style="animation-delay:{delay}s">
+    {img_tag}
+    <div class="overlay">
+      <div class="angle-tag">{v.get("angle_name","")}</div>
+      <h2 class="headline">{v.get("headline","")}</h2>
+      <p class="subline">{v.get("subline","")}</p>
+      <a class="cta-btn" href="#">{v.get("cta_text","Learn More")}</a>
+    </div>
+  </div>"""
+
+    html = f"""<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>{brand_name} — Ad Banner</title>
+<style>
+  *{{box-sizing:border-box;margin:0;padding:0}}
+  body{{display:flex;align-items:center;justify-content:center;min-height:100vh;background:#111;font-family:'Segoe UI',sans-serif}}
+  .banner{{position:relative;width:300px;height:600px;overflow:hidden;border-radius:12px;box-shadow:0 8px 40px rgba(0,0,0,.6)}}
+  .frame{{position:absolute;inset:0;opacity:0;animation:fadecycle 10.5s infinite}}
+  @keyframes fadecycle{{0%,30%{{opacity:1}}36%,100%{{opacity:0}}}}
+  .bg-img{{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}}
+  .overlay{{position:absolute;inset:0;display:flex;flex-direction:column;justify-content:flex-end;padding:24px;background:linear-gradient(to top,rgba(0,0,0,.75) 0%,rgba(0,0,0,.1) 60%,transparent 100%)}}
+  .angle-tag{{font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:{primary};background:rgba(255,255,255,.12);border:1px solid {primary}55;border-radius:20px;padding:3px 10px;width:fit-content;margin-bottom:10px}}
+  .headline{{font-size:22px;font-weight:800;color:#fff;line-height:1.2;margin-bottom:8px;text-shadow:0 2px 8px rgba(0,0,0,.5)}}
+  .subline{{font-size:13px;color:rgba(255,255,255,.82);line-height:1.45;margin-bottom:18px}}
+  .cta-btn{{display:inline-block;background:{primary};color:{secondary};font-size:13px;font-weight:700;padding:11px 22px;border-radius:8px;text-decoration:none;letter-spacing:.03em;width:100%;text-align:center;box-shadow:0 4px 16px {primary}66}}
+</style>
+</head>
+<body>
+<div class="banner">
+{frames_html}
+</div>
+</body>
+</html>"""
+
+    # Write to temp file and serve
+    tmp = _tmp.NamedTemporaryFile(suffix=".html", delete=False, mode="w", encoding="utf-8")
+    tmp.write(html)
+    tmp.close()
+    return FileResponse(
+        path=tmp.name,
+        media_type="text/html",
+        filename=f"brand_banner_job{job_id}.html",
+        headers={"Content-Disposition": f'attachment; filename="brand_banner_job{job_id}.html"'},
+    )
 
 
 @router.patch("/{job_id}/sora-prompt")
