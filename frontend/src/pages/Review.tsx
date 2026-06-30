@@ -4,7 +4,7 @@ import { motion } from 'framer-motion'
 import {
   CheckCircle2, RefreshCw, Trash2, ExternalLink,
   FileText, Clock, Languages, Maximize2, ChevronLeft, ChevronRight, Download,
-  Video, Copy, AlertCircle
+  Video, Copy, AlertCircle, Pencil, Wand2, Check
 } from 'lucide-react'
 import VideoPlayer from '../components/VideoPlayer'
 import Badge from '../components/Badge'
@@ -12,7 +12,9 @@ import ConfirmDialog from '../components/ConfirmDialog'
 import LoadingSpinner from '../components/LoadingSpinner'
 import { useJobStore } from '../stores/jobStore'
 import { useJobProgress } from '../hooks/useJobProgress'
-import { getJob, approveJob, rejectJob, deleteJob, getVideoUrl } from '../lib/api'
+import { getJob, approveJob, rejectJob, deleteJob, getVideoUrl,
+         saveSoraPrompt, regenerateSoraPrompt, generateAdCopy, selectAdCopy,
+         type AdCopyVariant } from '../lib/api'
 import { languageLabel, formatLabel, formatDate } from '../lib/utils'
 
 export default function Review() {
@@ -29,6 +31,20 @@ export default function Review() {
   const [showRejectConfirm, setShowRejectConfirm] = useState(false)
   const [approved, setApproved] = useState(false)
   const [batchIdx, setBatchIdx] = useState(0)
+
+  // Feature: Sora prompt editor
+  const [soraEditMode, setSoraEditMode]         = useState(false)
+  const [soraEditText, setSoraEditText]         = useState('')
+  const [soraEditSaving, setSoraEditSaving]     = useState(false)
+  const [soraRegenerating, setSoraRegenerating] = useState(false)
+
+  // Feature: Ad copy suggestions
+  type AdTone = 'emotional' | 'bold' | 'professional' | 'luxury'
+  const [adCopyTone, setAdCopyTone]         = useState<AdTone>('emotional')
+  const [adCopyVariants, setAdCopyVariants] = useState<AdCopyVariant[]>([])
+  const [adCopyLoading, setAdCopyLoading]   = useState(false)
+  const [selectedAdIdx, setSelectedAdIdx]   = useState<number | null>(null)
+  const [adCopySaved, setAdCopySaved]       = useState(false)
 
   // Live WS updates
   useJobProgress(id ?? null)
@@ -148,7 +164,7 @@ export default function Review() {
                       className="w-full"
                       style={{ minHeight: '480px', maxHeight: '640px' }}
                     />
-                    {/* Prompt below video */}
+                    {/* Prompt below video — editable */}
                     {soraPrompt && (
                       <div className="p-4 border-t border-white/5">
                         <div className="flex items-center justify-between mb-2">
@@ -156,8 +172,17 @@ export default function Review() {
                             <Video className="w-3.5 h-3.5" /> Sora-2 Prompt
                           </p>
                           <div className="flex items-center gap-2">
+                            {!soraEditMode && (
+                              <button
+                                onClick={() => { setSoraEditText(soraPrompt); setSoraEditMode(true) }}
+                                className="p-1 rounded text-slate-500 hover:text-purple-300 transition-colors"
+                                title="Edit prompt"
+                              >
+                                <Pencil className="w-3.5 h-3.5" />
+                              </button>
+                            )}
                             <button
-                              onClick={() => navigator.clipboard.writeText(soraPrompt)}
+                              onClick={() => navigator.clipboard.writeText(soraEditMode ? soraEditText : soraPrompt)}
                               className="p-1 rounded text-slate-500 hover:text-purple-300 transition-colors"
                               title="Copy prompt"
                             >
@@ -172,9 +197,59 @@ export default function Review() {
                             </a>
                           </div>
                         </div>
-                        <p className="text-xs text-slate-300 leading-relaxed whitespace-pre-wrap max-h-32 overflow-y-auto">
-                          {soraPrompt}
-                        </p>
+                        {soraEditMode ? (
+                          <>
+                            <textarea
+                              value={soraEditText}
+                              onChange={(e) => setSoraEditText(e.target.value)}
+                              className="w-full text-xs text-slate-300 bg-white/5 border border-purple-500/40 rounded-lg p-2 leading-relaxed resize-none h-32 focus:outline-none focus:border-purple-400"
+                            />
+                            <div className="flex gap-2 mt-2">
+                              <button
+                                disabled={soraEditSaving}
+                                onClick={async () => {
+                                  setSoraEditSaving(true)
+                                  try {
+                                    const updated = await saveSoraPrompt(id!, soraEditText)
+                                    updateJob(updated)
+                                    setSoraEditMode(false)
+                                  } catch { /* silent */ }
+                                  finally { setSoraEditSaving(false) }
+                                }}
+                                className="text-xs px-3 py-1.5 rounded-lg bg-white/10 hover:bg-white/20 text-white transition-colors disabled:opacity-50"
+                              >
+                                {soraEditSaving ? 'Saving…' : 'Save'}
+                              </button>
+                              <button
+                                disabled={soraRegenerating}
+                                onClick={async () => {
+                                  setSoraRegenerating(true)
+                                  try {
+                                    await regenerateSoraPrompt(id!, soraEditText)
+                                    const fresh = await getJob(id!)
+                                    updateJob(fresh)
+                                    setSoraEditMode(false)
+                                  } catch { /* silent */ }
+                                  finally { setSoraRegenerating(false) }
+                                }}
+                                className="text-xs px-3 py-1.5 rounded-lg bg-purple-600/80 hover:bg-purple-500 text-white transition-colors disabled:opacity-50 flex items-center gap-1.5"
+                              >
+                                <Wand2 className="w-3 h-3" />
+                                {soraRegenerating ? 'Submitting…' : 'Regenerate'}
+                              </button>
+                              <button
+                                onClick={() => setSoraEditMode(false)}
+                                className="text-xs px-3 py-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-slate-400 transition-colors"
+                              >
+                                Cancel
+                              </button>
+                            </div>
+                          </>
+                        ) : (
+                          <p className="text-xs text-slate-300 leading-relaxed whitespace-pre-wrap max-h-32 overflow-y-auto">
+                            {soraPrompt}
+                          </p>
+                        )}
                       </div>
                     )}
                   </>
