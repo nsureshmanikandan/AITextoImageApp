@@ -314,17 +314,44 @@ async def _poll_sora_video(job_id: int, videostoreid: str) -> None:
         path = await asyncio.get_event_loop().run_in_executor(
             None, lambda: download_sora_video(videostoreid, save_path)
         )
+        # Overlay logo onto Sora video if logo_base64 is available
         with Session(engine) as session:
             job = session.get(Job, job_id)
             if job:
                 bd = _json.loads(job.brand_data or "{}")
+                logo_b64 = bd.get("logo_base64", "")
+                final_path = path
+                if logo_b64:
+                    try:
+                        import base64 as _base64, tempfile as _tmp2, subprocess as _sub
+                        logo_bytes = _base64.b64decode(logo_b64)
+                        logo_tmp = _tmp2.NamedTemporaryFile(suffix=".png", delete=False)
+                        logo_tmp.write(logo_bytes)
+                        logo_tmp.close()
+                        branded_path = path.replace(".mp4", "_branded.mp4")
+                        result = _sub.run([
+                            "ffmpeg", "-y", "-i", path,
+                            "-i", logo_tmp.name,
+                            "-filter_complex",
+                            "[1:v]scale=120:-1[logo];[0:v][logo]overlay=W-w-20:20",
+                            "-codec:a", "copy",
+                            branded_path,
+                        ], capture_output=True, timeout=120)
+                        if result.returncode == 0:
+                            final_path = branded_path
+                            logger.info("Logo overlay applied to Sora video for job %d", job_id)
+                        else:
+                            logger.warning("Logo overlay FFmpeg failed for job %d: %s", job_id, result.stderr.decode()[:200])
+                    except Exception as logo_err:
+                        logger.warning("Logo overlay skipped for job %d: %s", job_id, logo_err)
+
                 bd["sora_status"] = "completed"
-                bd["sora_video_path"] = path
+                bd["sora_video_path"] = final_path
                 job.brand_data = _json.dumps(bd)
                 session.add(job); session.commit()
                 await ws_manager.broadcast(job_id, {"job_id": job_id, "sora_ready": True,
-                                                     "sora_video_path": path})
-                logger.info("Sora video ready for job %d: %s", job_id, path)
+                                                     "sora_video_path": final_path})
+                logger.info("Sora video ready for job %d: %s", job_id, final_path)
     except Exception as e:
         logger.warning("Sora polling failed for job %d: %s", job_id, e)
         with Session(engine) as session:

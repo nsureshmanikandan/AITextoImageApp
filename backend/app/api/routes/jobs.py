@@ -373,6 +373,83 @@ def get_brand_banner(job_id: int, session: Session = Depends(get_session)):
     )
 
 
+@router.get("/{job_id}/brand-banner/{index}.html")
+def get_brand_banner_single(job_id: int, index: int, session: Session = Depends(get_session)):
+    """Generate and serve a self-contained HTML5 banner for one ad variation."""
+    import json as _json, base64 as _b64, tempfile as _tmp
+    job = session.get(Job, job_id)
+    if not job:
+        raise HTTPException(404, "Job not found")
+    bd = _json.loads(job.brand_data or "{}")
+    variations: list = bd.get("ad_variations", [])
+    if not variations or index >= len(variations):
+        raise HTTPException(404, "Ad variation not found")
+
+    v = variations[index]
+    colors = bd.get("brand_colors", ["#6d28d9", "#ffffff"])
+    primary   = colors[0] if len(colors) > 0 else "#6d28d9"
+    secondary = colors[1] if len(colors) > 1 else "#ffffff"
+    brand_name = bd.get("brand_name", job.article_url.split("/")[-1][:30])
+    logo_base64 = bd.get("logo_base64", "")
+    logo_html = f'<img src="data:image/png;base64,{logo_base64}" class="logo" alt="logo">' if logo_base64 else f'<div class="logo-text">{brand_name[:12]}</div>'
+
+    path = v.get("image_path", "")
+    if path and Path(path).exists():
+        with open(path, "rb") as f:
+            b64 = _b64.b64encode(f.read()).decode()
+        img_tag = f'<img src="data:image/png;base64,{b64}" class="bg-img" alt="{v.get("angle_name","")}">'
+    else:
+        img_tag = f'<div class="bg-img" style="background:{primary}20"></div>'
+
+    html = f"""<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>{brand_name} — {v.get("angle_name","Ad")} Banner</title>
+<style>
+  *{{box-sizing:border-box;margin:0;padding:0}}
+  body{{display:flex;align-items:center;justify-content:center;min-height:100vh;background:#111;font-family:'Segoe UI',sans-serif}}
+  .banner{{position:relative;width:300px;height:600px;overflow:hidden;border-radius:12px;box-shadow:0 8px 40px rgba(0,0,0,.6)}}
+  .bg-img{{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}}
+  .overlay{{position:absolute;inset:0;display:flex;flex-direction:column;justify-content:flex-end;padding:24px;background:linear-gradient(to top,rgba(0,0,0,.75) 0%,rgba(0,0,0,.1) 60%,transparent 100%);animation:fadein .8s ease both}}
+  @keyframes fadein{{from{{opacity:0;transform:translateY(12px)}}to{{opacity:1;transform:translateY(0)}}}}
+  .angle-tag{{font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:{primary};background:rgba(255,255,255,.12);border:1px solid {primary}55;border-radius:20px;padding:3px 10px;width:fit-content;margin-bottom:10px}}
+  .headline{{font-size:22px;font-weight:800;color:#fff;line-height:1.2;margin-bottom:8px;text-shadow:0 2px 8px rgba(0,0,0,.5)}}
+  .subline{{font-size:13px;color:rgba(255,255,255,.82);line-height:1.45;margin-bottom:18px}}
+  .cta-btn{{display:inline-block;background:{primary};color:{secondary};font-size:13px;font-weight:700;padding:11px 22px;border-radius:8px;text-decoration:none;letter-spacing:.03em;width:100%;text-align:center;box-shadow:0 4px 16px {primary}66}}
+  .logo-wrap{{margin-bottom:auto;padding-bottom:8px}}
+  .logo{{height:32px;width:auto;max-width:80px;object-fit:contain;filter:drop-shadow(0 1px 4px rgba(0,0,0,.5))}}
+  .logo-text{{font-size:11px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:#fff;background:rgba(255,255,255,.15);border:1px solid rgba(255,255,255,.3);border-radius:6px;padding:4px 8px;backdrop-filter:blur(4px)}}
+</style>
+</head>
+<body>
+<div class="banner">
+  {img_tag}
+  <div class="overlay">
+    <div class="logo-wrap">{logo_html}</div>
+    <div class="angle-tag">{v.get("angle_name","")}</div>
+    <h2 class="headline">{v.get("headline","")}</h2>
+    <p class="subline">{v.get("subline","")}</p>
+    <a class="cta-btn" href="#">{v.get("cta_text","Learn More")}</a>
+  </div>
+</div>
+</body>
+</html>"""
+
+    tmp = _tmp.NamedTemporaryFile(suffix=".html", delete=False, mode="w", encoding="utf-8")
+    tmp.write(html)
+    tmp.close()
+    angle_slug = v.get("angle_name","variation").lower().replace(" ", "_")[:20]
+    fname = f"brand_banner_job{job_id}_{angle_slug}.html"
+    return FileResponse(
+        path=tmp.name,
+        media_type="text/html",
+        filename=fname,
+        headers={"Content-Disposition": f'attachment; filename="{fname}"'},
+    )
+
+
 @router.patch("/{job_id}/sora-prompt")
 def update_sora_prompt(
     job_id: int,

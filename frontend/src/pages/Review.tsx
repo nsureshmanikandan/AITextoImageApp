@@ -99,8 +99,9 @@ function BrandImageBanner({
           </div>
         </div>
       </div>
-      {/* Footer: dots + download */}
-      <div className="flex items-center justify-between px-4 py-2 bg-white/5 border-t border-white/5">
+      {/* Footer: dots + per-variation downloads */}
+      <div className="flex flex-col gap-2 px-4 py-3 bg-white/5 border-t border-white/5">
+        {/* Dot indicators */}
         <div className="flex items-center gap-2">
           {variations.map((_, i) => (
             <button
@@ -112,14 +113,20 @@ function BrandImageBanner({
             />
           ))}
         </div>
-        <a
-          href={`/api/jobs/${jobId}/brand-banner.html`}
-          download={`brand_banner_${jobId}.html`}
-          className="flex items-center gap-1.5 text-xs font-medium text-white bg-purple-600/80 hover:bg-purple-500 px-3 py-1.5 rounded-lg transition-colors"
-        >
-          <Download className="w-3 h-3" />
-          Download Banner
-        </a>
+        {/* Individual download buttons */}
+        <div className="flex flex-col gap-1.5">
+          {variations.map((v, i) => (
+            <a
+              key={i}
+              href={`/api/jobs/${jobId}/brand-banner/${i}.html`}
+              download={`banner_${jobId}_v${i + 1}.html`}
+              className="flex items-center justify-between gap-2 text-xs font-medium text-white bg-purple-600/70 hover:bg-purple-500 px-3 py-1.5 rounded-lg transition-colors"
+            >
+              <span className="truncate">{v.angle_name || `Variation ${i + 1}`}</span>
+              <Download className="w-3 h-3 flex-shrink-0" />
+            </a>
+          ))}
+        </div>
       </div>
     </div>
   )
@@ -359,6 +366,7 @@ export default function Review() {
                       <>
                         <div className="w-12 h-12 border-2 border-purple-500 border-t-transparent rounded-full animate-spin" />
                         <p className="text-slate-400 text-sm">Sora-2 rendering video…</p>
+                        <p className="text-slate-500 text-xs">Sora AI typically takes 3–5 minutes to generate.</p>
                         <p className="text-slate-600 text-xs font-mono">{soraVidId}</p>
                         <button
                           onClick={async () => {
