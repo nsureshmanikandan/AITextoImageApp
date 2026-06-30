@@ -82,6 +82,14 @@ export const BRAND_AD_PIPELINE_STEPS = [
   { key: 'awaiting_review', label: 'Ready for Review', description: 'Banner & Sora video ready' },
 ]
 
+export const EDUCATIONAL_PIPELINE_STEPS = [
+  { key: 'generating_script', label: 'Structuring Lesson', description: 'GPT-4o building chapters' },
+  { key: 'generating_voice', label: 'Creating Voice', description: 'Synthesising narration' },
+  { key: 'rendering_video', label: 'Rendering Slides', description: 'Animated lesson video' },
+  { key: 'sora_intro', label: 'Cinematic Intro', description: 'Sora intro + title overlay' },
+  { key: 'awaiting_review', label: 'Ready for Review', description: 'Video ready' },
+]
+
 export type VideoMode = 'article' | 'youtube' | 'brand_ad' | 'educational' | 'batch'
 
 export interface BrandAdParams {
@@ -101,11 +109,13 @@ export interface EducationalParams {
   topic: string
   level: 'school' | 'college' | 'professional'
   duration_mins: number
+  sora_intro?: boolean
 }
 
 export interface BatchParams {
   topics: string[]
   batch_mode: 'educational' | 'article'
+  sora_intro?: boolean
 }
 
 export interface TrendingTopic {
