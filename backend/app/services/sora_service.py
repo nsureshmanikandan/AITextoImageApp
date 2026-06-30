@@ -232,7 +232,7 @@ def _get_env_secret(name: str) -> str:
 _SAFE_RESOLUTION = "720x1280"   # always supported by base sora-2 model
 
 
-def start_video_generation(prompt: str) -> str:
+def start_video_generation(prompt: str, resolution: str | None = None) -> str:
     """
     Submit a video generation job to the Sora-2 API gateway.
     Returns videostoreid on success.
@@ -252,7 +252,7 @@ def start_video_generation(prompt: str) -> str:
         f"/Model/{_get_env_secret('SORA_MODEL_ID')}"
         f"/VideoGeneration"
     )
-    resolution = _try_env("SORA_RESOLUTION", _SAFE_RESOLUTION)
+    resolution = resolution or _try_env("SORA_RESOLUTION", _SAFE_RESOLUTION)
     duration   = _try_env("SORA_DURATION", "12")
 
     def _submit(res: str):
