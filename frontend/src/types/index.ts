@@ -92,6 +92,59 @@ export const EDUCATIONAL_PIPELINE_STEPS = [
 
 export type VideoMode = 'article' | 'youtube' | 'brand_ad' | 'educational' | 'batch'
 
+// ─── Live Breaking News Types ─────────────────────────────────────────────────
+
+export type FeedHealthStatus = 'active' | 'degraded' | 'error'
+export type MonitorState = 'active' | 'paused' | 'stopped'
+
+export interface FeedConfiguration {
+  id: number
+  feed_url: string
+  display_name: string
+  polling_interval_seconds: number
+  language: Language
+  priority_keywords: string
+  trust_level: 'trusted' | 'standard' | 'untrusted'
+  auto_approve: boolean
+  enabled: boolean
+  health_status: FeedHealthStatus
+  consecutive_failures: number
+  last_polled_at: string | null
+  articles_processed: number
+  current_polling_interval: number
+  created_at: string
+  updated_at: string
+}
+
+export interface LiveNewsDashboardStats {
+  monitor_state: MonitorState
+  total_active_feeds: number
+  degraded_feeds: number
+  articles_detected_last_hour: number
+  videos_awaiting_review: number
+  videos_auto_approved_last_hour: number
+  active_processing_jobs: number
+}
+
+export interface QueueItem {
+  job_id: number
+  article_title: string
+  article_url: string
+  feed_name: string
+  language: string
+  priority: 'high' | 'standard'
+  status: 'awaiting_review' | 'approved' | 'rejected' | 'failed'
+  created_at: string
+  video_path: string | null
+  rejection_reason: string | null
+  error: string | null
+}
+
+export interface LiveNewsWSMessage {
+  type: 'feed_status' | 'new_queue_item' | 'breaking_alert' | 'stats_update' | 'monitor_state'
+  payload: unknown
+}
+
 export interface BrandAdParams {
   brand_name: string
   product: string

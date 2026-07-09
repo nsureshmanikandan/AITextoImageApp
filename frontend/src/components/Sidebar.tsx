@@ -1,12 +1,18 @@
-import { NavLink, useLocation } from 'react-router-dom'
 import { motion } from 'framer-motion'
-import { LayoutDashboard, Video, History, Mic2 } from 'lucide-react'
+import { History, LayoutDashboard, Mic2, Radio, Rss, Settings2, Video } from 'lucide-react'
+import { NavLink, useLocation } from 'react-router-dom'
 import { cn } from '../lib/utils'
 
 const NAV_ITEMS = [
   { path: '/', label: 'Dashboard', icon: LayoutDashboard, exact: true },
   { path: '/create', label: 'Create Video', icon: Video },
   { path: '/history', label: 'History', icon: History },
+]
+
+const LIVE_NEWS_ITEMS = [
+  { path: '/live-news', label: 'Live Monitor', icon: Radio, exact: true },
+  { path: '/live-news/queue', label: 'Approval Queue', icon: Rss },
+  { path: '/live-news/feeds', label: 'Feed Config', icon: Settings2 },
 ]
 
 interface SidebarProps {
@@ -44,6 +50,58 @@ export default function Sidebar({ collapsed = false }: SidebarProps) {
       {/* Nav */}
       <nav className="flex-1 px-3 py-4 flex flex-col gap-1">
         {NAV_ITEMS.map(({ path, label, icon: Icon, exact }) => {
+          const isActive = exact
+            ? location.pathname === path
+            : location.pathname.startsWith(path)
+
+          return (
+            <NavLink
+              key={path}
+              to={path}
+              end={exact}
+              className={({ isActive: ia }) =>
+                cn(
+                  'relative flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-200 group overflow-hidden',
+                  ia
+                    ? 'bg-azure-600/15 text-azure-300'
+                    : 'text-slate-400 hover:text-white hover:bg-navy-800/60'
+                )
+              }
+            >
+              {isActive && (
+                <motion.div
+                  layoutId="nav-active-bg"
+                  className="absolute inset-0 bg-azure-600/10 rounded-xl"
+                  transition={{ type: 'spring', stiffness: 500, damping: 35 }}
+                />
+              )}
+              {isActive && (
+                <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-6 bg-azure-500 rounded-r-full" />
+              )}
+
+              <motion.div
+                whileHover={{ x: 2 }}
+                transition={{ duration: 0.15 }}
+                className="flex items-center gap-3 relative z-10"
+              >
+                <Icon className={cn('w-5 h-5 flex-shrink-0', isActive ? 'text-azure-400' : '')} />
+                {!collapsed && (
+                  <span className="text-sm font-medium">{label}</span>
+                )}
+              </motion.div>
+            </NavLink>
+          )
+        })}
+
+        {/* Live News Section */}
+        {!collapsed && (
+          <div className="mt-4 mb-1 px-3">
+            <span className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider">Live News</span>
+          </div>
+        )}
+        {collapsed && <div className="my-2 mx-3 border-t border-white/5" />}
+
+        {LIVE_NEWS_ITEMS.map(({ path, label, icon: Icon, exact }) => {
           const isActive = exact
             ? location.pathname === path
             : location.pathname.startsWith(path)

@@ -2,6 +2,7 @@ fastapi
 uvicorn[standard]
 sqlmodel
 httpx
+feedparser
 beautifulsoup4
 lxml
 openai>=1.0

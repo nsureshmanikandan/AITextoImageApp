@@ -477,6 +477,50 @@ async def _run_batch_pipeline(session: Session, job: Job) -> None:
                       f"Batch complete: {len(all_videos)}/{len(topics)} video(s) generated")
 
 
+# ── Auto-approve for trusted live-news feeds ──────────────────────────────────
+async def _maybe_auto_approve(session: Session, job: Job) -> None:
+    """If this job was triggered by a trusted live-news feed with auto_approve=True,
+    automatically approve it and log the audit entry."""
+    import json as _json
+    try:
+        brand_data = _json.loads(job.brand_data or "{}")
+        if brand_data.get("origin") != "live_news":
+            return
+
+        feed_config_id = brand_data.get("feed_config_id")
+        if not feed_config_id:
+            return
+
+        from app.models.feed_configuration import FeedConfiguration
+        feed = session.get(FeedConfiguration, feed_config_id)
+        if not feed:
+            return
+
+        if feed.trust_level == "trusted" and feed.auto_approve:
+            job.status = "approved"
+            job.append_step("auto_approve", "completed",
+                            f"Auto-approved from trusted feed: {feed.display_name} ({feed.feed_url})")
+            brand_data["auto_approved"] = True
+            brand_data["auto_approved_feed"] = feed.display_name
+            job.brand_data = _json.dumps(brand_data)
+            session.add(job)
+            session.commit()
+            session.refresh(job)
+            logger.info("Job %d auto-approved (trusted feed %d: %s)", job.id, feed.id, feed.display_name)
+
+            # Broadcast auto-approval event
+            try:
+                from app.ws_manager import live_news_ws
+                await live_news_ws.broadcast({
+                    "type": "stats_update",
+                    "payload": {"auto_approved_job_id": job.id, "feed_name": feed.display_name},
+                })
+            except Exception:
+                pass
+    except Exception as e:
+        logger.warning("Auto-approve check failed (non-fatal): %s", e)
+
+
 # ── Main entry point ──────────────────────────────────────────────────────────
 async def run_pipeline(job_id: int) -> None:
     with Session(engine) as session:
@@ -505,6 +549,9 @@ async def run_pipeline(job_id: int) -> None:
 
             await _update_job(session, job, "awaiting_review", "awaiting_review", "pending",
                               "Waiting for journalist review and approval")
+
+            # ── Auto-approve for trusted live-news feeds ──────────────────────
+            await _maybe_auto_approve(session, job)
 
         except Exception as exc:
             logger.exception("Pipeline failed for job %d: %s", job_id, exc)

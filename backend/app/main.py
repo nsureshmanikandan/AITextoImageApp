@@ -17,7 +17,9 @@ import asyncio
 from app.database import create_db_and_tables
 from app.api.routes import jobs as jobs_router
 from app.api.routes import health as health_router
-from app.ws_manager import ws_manager
+from app.api.routes import feeds as feeds_router
+from app.api.routes import live_news as live_news_router
+from app.ws_manager import ws_manager, live_news_ws
 from app.config import settings
 
 logging.basicConfig(
@@ -63,10 +65,16 @@ def _run_db_migrations() -> None:
             except Exception:
                 pass  # column already exists
 
+    # Ensure new live-breaking-news tables exist (FeedConfiguration, ArticleFingerprint)
+    # These are created by create_db_and_tables() via SQLModel.metadata, but we import
+    # the models here to guarantee they're registered before create_all runs.
+    import app.models  # noqa: F401
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     logger.info("VernacularCast API starting up — creating DB tables")
+    import app.models  # noqa: F401 — register all SQLModel tables
     create_db_and_tables()
     _run_db_migrations()
     _recover_stuck_jobs()
@@ -93,6 +101,8 @@ app.add_middleware(
 # Routers
 app.include_router(health_router.router, prefix="/api")
 app.include_router(jobs_router.router, prefix="/api")
+app.include_router(feeds_router.router, prefix="/api")
+app.include_router(live_news_router.router, prefix="/api")
 
 # Serve rendered videos from the local media directory
 _media_dir = Path(settings.local_media_dir).resolve()
@@ -113,6 +123,25 @@ async def websocket_job_progress(websocket: WebSocket, job_id: int):
     except Exception as e:
         logger.warning("WebSocket error for job %d: %s", job_id, e)
         ws_manager.disconnect(job_id, websocket)
+
+
+@app.websocket("/ws/live-news")
+async def websocket_live_news(websocket: WebSocket):
+    """Broadcast channel for live-news dashboard clients.
+
+    Connected clients receive real-time updates about feed status,
+    queue changes, breaking alerts, stats, and monitor state.
+    """
+    await live_news_ws.connect(websocket)
+    try:
+        while True:
+            await asyncio.sleep(30)
+            await websocket.send_json({"type": "ping"})
+    except WebSocketDisconnect:
+        live_news_ws.disconnect(websocket)
+    except Exception as e:
+        logger.warning("Live-news WebSocket error: %s", e)
+        live_news_ws.disconnect(websocket)
 
 
 @app.get("/", tags=["root"])

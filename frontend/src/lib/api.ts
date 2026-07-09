@@ -1,5 +1,5 @@
 import axios from 'axios'
-import type { Job, DashboardStats, ScrapePreview, Language, VideoFormat, TrendingTopic } from '../types'
+import type { DashboardStats, FeedConfiguration, Job, Language, LiveNewsDashboardStats, QueueItem, ScrapePreview, TrendingTopic, VideoFormat } from '../types'
 
 const BASE_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:8000'
 
@@ -125,4 +125,106 @@ export async function selectAdCopy(
 ): Promise<Job> {
   const { data } = await api.patch<Job>(`/api/jobs/${id}/ad-copy/select`, { ...variant, tone })
   return data
+}
+
+
+// ─── Live Breaking News API ───────────────────────────────────────────────────
+
+// Feed CRUD
+export async function listFeeds(): Promise<FeedConfiguration[]> {
+  const { data } = await api.get<FeedConfiguration[]>('/api/feeds')
+  return data
+}
+
+export async function getFeed(id: number): Promise<FeedConfiguration> {
+  const { data } = await api.get<FeedConfiguration>(`/api/feeds/${id}`)
+  return data
+}
+
+export interface CreateFeedPayload {
+  feed_url: string
+  display_name: string
+  polling_interval_seconds?: number
+  language?: string
+  priority_keywords?: string
+  trust_level?: string
+  auto_approve?: boolean
+  enabled?: boolean
+}
+
+export async function createFeed(payload: CreateFeedPayload): Promise<FeedConfiguration> {
+  const { data } = await api.post<FeedConfiguration>('/api/feeds', payload)
+  return data
+}
+
+export async function updateFeed(id: number, payload: Partial<CreateFeedPayload>): Promise<FeedConfiguration> {
+  const { data } = await api.put<FeedConfiguration>(`/api/feeds/${id}`, payload)
+  return data
+}
+
+export async function deleteFeed(id: number): Promise<void> {
+  await api.delete(`/api/feeds/${id}`)
+}
+
+export async function validateFeedUrl(id: number): Promise<{ valid: boolean; message?: string }> {
+  const { data } = await api.post<{ valid: boolean; message?: string }>(`/api/feeds/${id}/validate`)
+  return data
+}
+
+// Monitoring lifecycle
+export async function startMonitoring(): Promise<{ status: string }> {
+  const { data } = await api.post<{ status: string }>('/api/live-news/start')
+  return data
+}
+
+export async function pauseMonitoring(): Promise<{ status: string }> {
+  const { data } = await api.post<{ status: string }>('/api/live-news/pause')
+  return data
+}
+
+export async function resumeMonitoring(): Promise<{ status: string }> {
+  const { data } = await api.post<{ status: string }>('/api/live-news/resume')
+  return data
+}
+
+export async function stopMonitoring(): Promise<{ status: string }> {
+  const { data } = await api.post<{ status: string }>('/api/live-news/stop')
+  return data
+}
+
+export async function getMonitorStatus(): Promise<{ state: string }> {
+  const { data } = await api.get<{ state: string }>('/api/live-news/status')
+  return data
+}
+
+// Dashboard & Queue
+export async function getDashboardLiveNews(): Promise<LiveNewsDashboardStats> {
+  const { data } = await api.get<LiveNewsDashboardStats>('/api/live-news/dashboard')
+  return data
+}
+
+export async function getApprovalQueue(page = 1, pageSize = 20): Promise<QueueItem[]> {
+  const { data } = await api.get<QueueItem[]>('/api/live-news/queue', { params: { page, page_size: pageSize } })
+  return data
+}
+
+export async function approveQueueItem(jobId: number): Promise<{ status: string }> {
+  const { data } = await api.post<{ status: string }>(`/api/live-news/queue/${jobId}/approve`)
+  return data
+}
+
+export async function rejectQueueItem(jobId: number, reason: string): Promise<{ status: string }> {
+  const { data } = await api.post<{ status: string }>(`/api/live-news/queue/${jobId}/reject`, { reason })
+  return data
+}
+
+export async function getFeedArticles(feedId: number): Promise<{ url: string; title: string; detected_at: string; status: string }[]> {
+  const { data } = await api.get(`/api/live-news/feeds/${feedId}/articles`)
+  return data
+}
+
+// WebSocket
+export function getLiveNewsWebSocketUrl(): string {
+  const wsBase = BASE_URL.replace(/^http/, 'ws')
+  return `${wsBase}/ws/live-news`
 }

@@ -1,15 +1,20 @@
-import { BrowserRouter, Routes, Route } from 'react-router-dom'
 import { AnimatePresence } from 'framer-motion'
+import { BrowserRouter, Route, Routes } from 'react-router-dom'
+import BreakingAlert from './components/BreakingAlert'
 import Layout from './components/Layout'
-import Dashboard from './pages/Dashboard'
+import ApprovalQueue from './pages/ApprovalQueue'
 import CreateVideo from './pages/CreateVideo'
-import Review from './pages/Review'
+import Dashboard from './pages/Dashboard'
+import FeedConfigPage from './pages/FeedConfigPage'
 import History from './pages/History'
+import LiveNewsDashboard from './pages/LiveNewsDashboard'
 import NotFound from './pages/NotFound'
+import Review from './pages/Review'
 
 export default function App() {
   return (
     <BrowserRouter>
+      <BreakingAlert />
       <AnimatePresence mode="wait">
         <Routes>
           <Route path="/" element={<Layout />}>
@@ -17,6 +22,9 @@ export default function App() {
             <Route path="create" element={<CreateVideo />} />
             <Route path="review/:id" element={<Review />} />
             <Route path="history" element={<History />} />
+            <Route path="live-news" element={<LiveNewsDashboard />} />
+            <Route path="live-news/queue" element={<ApprovalQueue />} />
+            <Route path="live-news/feeds" element={<FeedConfigPage />} />
             <Route path="*" element={<NotFound />} />
           </Route>
         </Routes>
